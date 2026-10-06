@@ -32,3 +32,14 @@ Run locally: `npm install`, then `npx wrangler dev` (uses a local database).
 
 ## Rename
 Change `BRAND` in `public/common.js` and the page titles.
+
+## Planned next (saved for later)
+**Live connections instead of check-ins** (decided to do before scaling up):
+- One live "room" per party (Cloudflare Durable Object with WebSocket hibernation). Guest phones and big screens connect to it.
+- Sprays go to the room, which pushes them to every screen instantly; running totals and the leaderboard live in the room (no recalculating).
+- Wind-down and finale reach every phone instantly.
+- D1 keeps the permanent record (stacks, sprays, who-sprayed-what).
+- Auto-reconnect, with a fallback to check-ins only while a phone can't connect (unreliable venue networks).
+- Test: full party plus a network cut mid-party.
+
+Why: the current version has every guest phone check in every 5 seconds and the screen re-total every second. Fine for testing, but a 500-guest party would exhaust Cloudflare's free daily allowance. Also needed before the first real event: **Workers Paid ($5/month)**.
