@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Spray</title><meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .evname{font:800 1.5rem/1.1 var(--display);margin:4px 0 18px}
+  .step[hidden]{display:none}
+  /* spray mode */
+  .spray{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:18px 16px calc(18px + env(safe-area-inset-bottom));background:radial-gradient(120% 80% at 50% 100%,#1b2a1f 0%,var(--night) 60%);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+  .spray .who{text-align:center}.spray .who b{display:block;font:800 1.6rem var(--display)}
+  .left{font:800 2.4rem var(--display);text-align:center;font-variant-numeric:tabular-nums}
+  .left small{display:block;font:600 .85rem var(--body);color:var(--mute)}
+  .pile{position:relative;width:min(78vw,300px);aspect-ratio:2.1/1;margin:8px 0}
+  .note{position:absolute;inset:0;border-radius:12px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font:800 1.7rem var(--display);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.4);border:2px solid rgba(255,255,255,.25);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 6px,transparent 6px 12px)}
+  .note[data-v="200"]{background-color:#8a5a12}.note[data-v="500"]{background-color:#1d4f8f}.note[data-v="1000"]{background-color:#6b2f20}
+  .note .seal{width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,255,255,.5);display:grid;place-items:center;font-size:1.1rem}
+  .pile .note:nth-child(2){transform:translate(4px,4px) rotate(2deg);opacity:.7}.pile .note:nth-child(3){transform:translate(8px,8px) rotate(4deg);opacity:.45}
+  .fly{position:fixed;z-index:30;pointer-events:none;transition:transform .7s cubic-bezier(.2,.7,.3,1),opacity .7s}
+  .hint{color:var(--mute);text-align:center;font-weight:600}
+  .actions{width:100%;max-width:420px;display:grid;gap:10px}
+  .banner{position:fixed;left:12px;right:12px;top:12px;z-index:40;background:var(--gold);color:var(--gold-ink);border-radius:14px;padding:12px 14px;font-weight:700;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .banner .btn{width:auto;min-height:40px;background:var(--gold-ink);color:var(--gold);border:0}
+</style>
+</head><body>
+<div class="wrap" id="main">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span class="badge demo" id="demoBadge" hidden>Preview: no real money</span></header>
+  <p class="muted" id="loading">Loading the party…</p>
+
+  <section class="step" id="stepEnded" hidden><div class="card"><h2>This party has ended</h2><p class="muted" id="endedMsg">Thanks for showing love. Anything left in your stack went out in the finale rain.</p></div><a class="btn" href="/">Back home</a></section>
+
+  <section class="step" id="stepPick" hidden>
+    <div class="evname" id="evname"></div>
+    <h2>Who are you spraying?</h2>
+    <div class="picks" id="picks"></div>
+    <div class="card" style="margin-top:14px">
+      <h3>Someone else in the room?</h3>
+      <p class="muted small" style="margin-bottom:10px">Ask them to show their spray code.</p>
+      <form class="row" id="codeForm"><input id="pcode" maxlength="6" placeholder="Spray code" aria-label="Their spray code" style="text-transform:uppercase;letter-spacing:.12em;font-weight:700"><button class="btn" style="flex:0 0 auto;width:auto">Next</button></form>
+      <div class="err" id="codeErr" role="alert"></div>
+    </div>
+    <button class="btn ghost" id="resume" hidden>Back to my stack</button>
+  </section>
+
+  <section class="step" id="stepStack" hidden>
+    <button class="btn ghost" id="back" style="width:auto;min-height:40px;margin-bottom:10px">← Change</button>
+    <h2>Spraying <span id="toName"></span></h2>
+    <div class="field"><label>Your stack</label><div class="chips" id="amounts"></div>
+      <input id="custom" inputmode="numeric" placeholder="Other amount" aria-label="Other amount" style="margin-top:8px"></div>
+    <div class="field"><label>Note size</label><div class="chips" id="notes"></div></div>
+    <div class="field"><label for="gname">Your name on the screen</label><input id="gname" maxlength="30" placeholder="e.g. Chief Ade" autocomplete="nickname"></div>
+    <label class="check" style="margin-bottom:14px"><input type="checkbox" id="anon"> Stay anonymous (shows as "Odogwu")</label>
+    <div class="card">
+      <div class="sum"><span>Stack</span><span id="sStack">₦0</span></div>
+      <div class="sum"><span>Service fee (3%)</span><span id="sFee">₦0</span></div>
+      <div class="sum total"><span>You pay</span><span id="sTotal">₦0</span></div>
+      <p class="muted small" style="margin-top:8px">The whole stack goes to <span id="toName2"></span>. If the party ends before you've thrown it all, the rest rains on them in the finale.</p>
+    </div>
+    <div class="err" id="payErr" role="alert"></div>
+    <button class="btn gold" id="pay">Pay</button>
+  </section>
+</div>
+
+<section class="spray" id="spray" hidden aria-label="Spray mode">
+  <div class="who"><span class="muted small">Spraying</span><b id="sprayTo"></b></div>
+  <div class="left" aria-live="polite"><span id="left">₦0</span><small>left in your stack</small></div>
+  <div class="pile" id="pile"></div>
+  <p class="hint" id="hint">Swipe up on the notes to spray</p>
+  <div class="actions">
+    <div class="row"><button class="btn green" id="one">Throw one</button><button class="btn gold" id="rain">Make it rain ×10</button></div>
+    <button class="btn ghost" id="more">Spray someone else</button>
+  </div>
+</section>
+<div class="banner" id="banner" hidden><span id="bannerText">The night is ending! Throw the rest?</span><button class="btn" id="bannerGo">Make it rain</button></div>
+
+<script src="/common.js"></script>
+<script>
+const CODE = codeFromPath();
+const KEY = "stacks:" + CODE;
+let EVENT, RECIPIENTS = [], CFG, target = null, active = null; let watcher;
+
+const show = (id) => { $$(".step").forEach((s) => (s.hidden = s.id !== id)); $("#loading").hidden = true; };
+const myStacks = () => store.get(KEY) || [];
+const saveStack = (s) => { const { flushing, ...keep } = s; const all = myStacks().filter((x) => x.id !== s.id); all.push(keep); store.set(KEY, all); };
+const current = () => myStacks().filter((s) => s.left > 0).pop() || null;
+
+async function boot() {
+  try {
+    [CFG, { event: EVENT, recipients: RECIPIENTS }] = await Promise.all([api("/config"), api("/events/" + CODE)]);
+  } catch (e) { $("#loading").textContent = e.message; return; }
+  document.title = EVENT.name + " · " + BRAND.name;
+  $("#demoBadge").hidden = CFG.mode !== "demo";
+  if (EVENT.status === "ended") return show("stepEnded");
+  $("#evname").textContent = EVENT.name;
+  $("#picks").replaceChildren(...RECIPIENTS.filter((r) => !r.guest).map((r) =>
+    el("button", { class: "pick", type: "button", onclick: () => choose({ recipientId: r.id, name: r.name }) }, el("span", {}, r.name), el("small", {}, r.role || ""))));
+  active = current();
+  $("#resume").hidden = !active; $("#resume").onclick = () => startSpray(active);
+  if (active) startSpray(active); else show("stepPick");
+  watcher = setInterval(watchStatus, 5000);
+}
+
+$("#codeForm").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("#codeErr").textContent = "";
+  const c = $("#pcode").value.trim().toUpperCase(); if (!c) return;
+  try { const p = await api("/people/" + c); choose({ personCode: p.code, name: p.name }); }
+  catch (x) { $("#codeErr").textContent = x.message; }
+});
+
+/* ---------- stack ---------- */
+let amount = 0, note = 500;
+function choose(t) {
+  target = t;
+  $("#toName").textContent = $("#toName2").textContent = t.name;
+  $("#gname").value = store.get("guestName") || "";
+  $("#amounts").replaceChildren(...CFG.stacks.map((a) => el("button", { type: "button", class: "chip", "aria-pressed": "false", onclick: (e) => setAmount(a, e.currentTarget) }, naira(a))));
+  $("#notes").replaceChildren(...CFG.notes.map((n) => el("button", { type: "button", class: "chip", "aria-pressed": String(n === note), onclick: (e) => { note = n; $$("#notes .chip").forEach((c) => c.setAttribute("aria-pressed", String(c === e.currentTarget))); summary(); } }, naira(n))));
+  setAmount(CFG.stacks[1], $$("#amounts .chip")[1]);
+  show("stepStack"); scrollTo(0, 0);
+}
+function setAmount(a, chip) {
+  amount = a; $("#custom").value = "";
+  $$("#amounts .chip").forEach((c) => c.setAttribute("aria-pressed", String(c === chip))); summary();
+}
+$("#custom").addEventListener("input", (e) => {
+  amount = Number(e.target.value.replace(/\D/g, "")) || 0;
+  $$("#amounts .chip").forEach((c) => c.setAttribute("aria-pressed", "false")); summary();
+});
+function summary() {
+  const fee = Math.ceil(amount * CFG.fee);
+  $("#sStack").textContent = naira(amount); $("#sFee").textContent = naira(fee); $("#sTotal").textContent = naira(amount + fee);
+  $("#pay").textContent = (CFG.mode === "demo" ? "Pay " + naira(amount + fee) + " (demo)" : "Pay " + naira(amount + fee));
+}
+$("#back").onclick = () => show("stepPick");
+$("#pay").onclick = async () => {
+  $("#payErr").textContent = "";
+  if (amount % note) return ($("#payErr").textContent = `Choose an amount in whole ${naira(note)} notes.`);
+  const btn = $("#pay"); btn.disabled = true;
+  try {
+    store.set("guestName", $("#gname").value.trim());
+    const r = await api(`/events/${CODE}/stacks`, { method: "POST", body: { ...target, amount, note, name: $("#gname").value, anonymous: $("#anon").checked } });
+    const s = { id: r.stack.id, token: r.token, amount: r.stack.amount, note: r.stack.note, left: r.stack.amount, recipient: r.stack.recipient };
+    saveStack(s); startSpray(s);
+  } catch (x) { $("#payErr").textContent = x.message; } finally { btn.disabled = false; }
+};
+
+/* ---------- spray mode ---------- */
+function noteEl(v) { return el("div", { class: "note", "data-v": v }, el("span", {}, naira(v)), el("span", { class: "seal" }, BRAND.mark)); }
+function startSpray(s) {
+  active = s;
+  $("#main").hidden = true; $("#spray").hidden = false;
+  $("#sprayTo").textContent = s.recipient;
+  $("#pile").replaceChildren(noteEl(s.note), noteEl(s.note), noteEl(s.note));
+  renderLeft();
+}
+function renderLeft() {
+  $("#left").textContent = naira(active.left);
+  const empty = active.left <= 0;
+  $("#one").disabled = $("#rain").disabled = empty;
+  $("#pile").style.visibility = empty ? "hidden" : "visible";
+  $("#hint").textContent = empty ? "Stack finished. Thank you for the love! 🎉" : "Swipe up on the notes to spray";
+  $("#more").textContent = empty ? "Buy another stack" : "Spray someone else";
+}
+function throwNotes(n) {
+  n = Math.min(n, Math.ceil(active.left / active.note)); if (n <= 0) return;
+  active.left = Math.max(0, active.left - n * active.note); saveStack(active); renderLeft();
+  enqueue(active, n);
+  const r = $("#pile").getBoundingClientRect();
+  for (let i = 0; i < Math.min(n, 12); i++) setTimeout(() => {
+    const f = noteEl(active.note); f.classList.add("fly");
+    Object.assign(f.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" });
+    document.body.append(f);
+    requestAnimationFrame(() => { f.style.transform = `translate(${(Math.random() - .5) * 240}px, ${-r.top - r.height - 80}px) rotate(${(Math.random() - .5) * 70}deg)`; f.style.opacity = ".2"; });
+    setTimeout(() => f.remove(), 750);
+  }, i * 60);
+  navigator.vibrate?.(12);
+}
+// Quick flicks are batched into one request; each stack keeps its own queue, so switching stacks mid-throw is safe.
+const queues = {};
+function enqueue(s, n) { queues[s.id] = (queues[s.id] || 0) + n; flush(s); }
+async function flush(s) {
+  if (s.flushing || !queues[s.id]) return; s.flushing = true;
+  while (queues[s.id] > 0) {
+    const n = Math.min(queues[s.id], 50); queues[s.id] -= n;
+    try {
+      const r = await api(`/events/${CODE}/stacks/${s.id}/flick`, { method: "POST", body: { notes: n }, headers: { "X-Stack-Token": s.token } });
+      if (!queues[s.id]) { s.left = r.left; saveStack(s); }
+    } catch (x) {
+      if (/ended/.test(x.message)) { s.left = 0; saveStack(s); queues[s.id] = 0; toast(x.message); break; }
+      queues[s.id] += n; await new Promise((res) => setTimeout(res, 1500));   // network blip at the venue: retry
+    }
+  }
+  s.flushing = false; if (s === active) renderLeft();
+}
+// swipe up on the pile to throw
+let startY = null;
+$("#pile").addEventListener("pointerdown", (e) => { startY = e.clientY; e.currentTarget.setPointerCapture(e.pointerId); });
+$("#pile").addEventListener("pointermove", (e) => { if (startY !== null && startY - e.clientY > 40) { throwNotes(1); startY = e.clientY; } });
+$("#pile").addEventListener("pointerup", () => (startY = null));
+$("#one").onclick = () => throwNotes(1);
+$("#rain").onclick = () => throwNotes(10);
+$("#more").onclick = () => { $("#spray").hidden = true; $("#main").hidden = false; $("#resume").hidden = !(current()); show("stepPick"); };
+
+/* ---------- end of the night ---------- */
+async function watchStatus() {
+  try {
+    const { event } = await api("/events/" + CODE); EVENT = event;
+    const s = current();
+    if (event.status === "closing" && s) {
+      $("#bannerText").textContent = `The night is ending! You still have ${naira(s.left)}.`;
+      $("#banner").hidden = false;
+    } else $("#banner").hidden = true;
+    if (event.status === "ended") {
+      clearInterval(watcher);   // show the ending once
+      const left = myStacks().reduce((a, x) => a + x.left, 0);
+      store.set(KEY, myStacks().map((x) => ({ ...x, left: 0 })));
+      $("#endedMsg").textContent = left ? `The party is over. Your last ${naira(left)} rained on them in the finale. Thanks for the love!` : "The party is over. Thanks for the love!";
+      $("#spray").hidden = true; $("#main").hidden = false; $("#banner").hidden = true; show("stepEnded");
+    }
+  } catch {}
+}
+$("#bannerGo").onclick = () => {
+  const s = current(); if (!s) return;
+  if (!active || active.id !== s.id) startSpray(s);
+  throwNotes(Math.ceil(s.left / s.note)); $("#banner").hidden = true;
+};
+boot();
+</script>
+</body></html>

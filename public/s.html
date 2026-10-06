@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Big screen · Spray</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  html,body{height:100%;overflow:hidden;background:radial-gradient(90% 70% at 50% 110%,#16301f 0%,#0b0a12 55%)}
+  canvas{position:fixed;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+  .hud{position:fixed;inset:0;z-index:3;display:grid;grid-template-columns:1fr minmax(240px,24vw);grid-template-rows:auto 1fr auto;gap:2vh 2vw;padding:3vh 3vw;pointer-events:none}
+  .title{grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-start}
+  .title h1{font-size:clamp(1.6rem,3.6vw,3.4rem);max-width:60vw}
+  .total{text-align:right;background:rgba(21,19,31,.8);border:1px solid var(--line);border-radius:18px;padding:12px 20px;backdrop-filter:blur(6px)}.total b{display:block;font:800 clamp(2.4rem,6vw,6rem)/1 var(--display);color:var(--gold);font-variant-numeric:tabular-nums;text-shadow:0 0 40px rgba(245,197,66,.35)}
+  .total span{color:var(--mute);font-weight:600;font-size:clamp(.9rem,1.2vw,1.2rem)}
+  .board{grid-column:2;grid-row:2;align-self:start;background:rgba(21,19,31,.75);border:1px solid var(--line);border-radius:18px;padding:16px 18px;backdrop-filter:blur(6px)}
+  .board h3{color:var(--gold);font-size:clamp(.9rem,1.2vw,1.2rem);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+  .board ol{list-style:none;padding:0;display:grid;gap:6px}
+  .board li{display:flex;justify-content:space-between;gap:10px;font-weight:700;font-size:clamp(.95rem,1.3vw,1.35rem)}
+  .board li span:last-child{color:var(--gold);font-variant-numeric:tabular-nums}
+  .ticker{grid-column:2;grid-row:3;align-self:end;display:grid;gap:8px}
+  .tick{background:rgba(21,19,31,.85);border:1px solid var(--line);border-radius:14px;padding:10px 14px;font-weight:600;font-size:clamp(.9rem,1.2vw,1.2rem);animation:in .35s ease-out}
+  .tick b{color:var(--gold)}
+  @keyframes in{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+  .scan{grid-column:1;grid-row:3;align-self:end;display:flex;gap:18px;align-items:center}
+  .scan .qr{width:clamp(110px,11vw,190px)}
+  .scan p{font:800 clamp(1.2rem,2.2vw,2.2rem)/1.1 var(--display)}
+  .scan p span{display:block;color:var(--gold);letter-spacing:.12em}
+  .scan small{display:block;color:var(--mute);font:600 clamp(.8rem,1vw,1rem) var(--body);margin-top:6px}
+  .shout{position:fixed;z-index:4;left:50%;top:44%;transform:translate(-50%,-50%) scale(.6);opacity:0;text-align:center;pointer-events:none;transition:transform .35s cubic-bezier(.2,1.4,.4,1),opacity .35s;width:80vw}
+  .shout.on{transform:translate(-50%,-50%) scale(1);opacity:1}
+  .shout b{display:block;font:800 clamp(2.4rem,6.5vw,7rem)/1 var(--display);color:var(--gold);text-shadow:0 6px 40px rgba(0,0,0,.6)}
+  .shout span{display:block;font:700 clamp(1.1rem,2.4vw,2.4rem) var(--display);margin-top:.6vh;text-shadow:0 4px 20px rgba(0,0,0,.8)}
+  .offline{position:fixed;z-index:5;top:10px;left:50%;transform:translateX(-50%);background:var(--red);color:#fff;font-weight:700;padding:6px 12px;border-radius:999px;font-size:.85rem}
+  .fs{position:fixed;z-index:6;right:12px;bottom:12px;pointer-events:auto;width:auto;min-height:36px;opacity:.5;font-size:.8rem}
+</style>
+</head><body>
+<canvas id="c"></canvas>
+<div class="hud">
+  <div class="title"><h1 id="name">…</h1><div class="total"><b id="total">₦0</b><span id="count">sprayed tonight</span></div></div>
+  <div class="board" id="board" hidden><h3>Top sprayers</h3><ol id="top"></ol></div>
+  <div class="ticker" id="ticker"></div>
+  <div class="scan"><div class="qr" id="qr"></div><p>Scan to spray<span id="code"></span><small id="url"></small></p></div>
+</div>
+<div class="shout" id="shout"><b id="shoutAmt"></b><span id="shoutWho"></span></div>
+<div class="offline" id="offline" hidden>Reconnecting…</div>
+<button class="btn fs" id="fs">Full screen</button>
+<script src="/common.js"></script><script src="/qrcode.js"></script>
+<script>
+const CODE = codeFromPath();
+const cv = $("#c"), ctx = cv.getContext("2d");
+let W, H, DPR, notes = [], since = 0, finaleShown = false;
+function size() { DPR = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
+addEventListener("resize", size); size();
+
+const COLORS = { 200: "#8a5a12", 500: "#1d4f8f", 1000: "#6b2f20" };
+function spawn(value, count, burst = false) {
+  const nw = Math.max(70, Math.min(150, W * 0.075));
+  for (let i = 0; i < count; i++) notes.push({
+    x: burst ? W / 2 + (Math.random() - .5) * W * .5 : Math.random() * W,
+    y: burst ? H * .45 : -nw - Math.random() * H * .5,
+    vx: (Math.random() - .5) * (burst ? 7 : 1.2), vy: burst ? -Math.random() * 9 - 2 : 1.6 + Math.random() * 2.4,
+    r: Math.random() * Math.PI, vr: (Math.random() - .5) * .08, w: nw, v: value, sway: Math.random() * 6.28,
+  });
+  if (notes.length > 900) notes.splice(0, notes.length - 900);
+}
+function drawNote(n) {
+  const w = n.w, h = w / 2.1;
+  ctx.save(); ctx.translate(n.x, n.y); ctx.rotate(n.r);
+  ctx.scale(1, Math.abs(Math.cos(n.sway)) * .6 + .4);          // flutter
+  ctx.fillStyle = COLORS[n.v] || "#245c3a";
+  ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 8); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = "#fff"; ctx.font = `800 ${h * .42}px "Bricolage Grotesque",sans-serif`; ctx.textBaseline = "middle";
+  ctx.fillText("₦" + n.v, -w / 2 + w * .08, 0);
+  ctx.beginPath(); ctx.arc(w / 2 - h * .45, 0, h * .28, 0, 6.29); ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.stroke();
+  ctx.restore();
+}
+function frame() {
+  ctx.clearRect(0, 0, W, H);
+  for (const n of notes) { n.vy = Math.min(n.vy + .06, 4.5); n.x += n.vx + Math.sin(n.sway) * .6; n.y += n.vy; n.r += n.vr; n.sway += .05; drawNote(n); }
+  notes = notes.filter((n) => n.y < H + n.w);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+let shoutTimer;
+function shout(amount, who) {
+  $("#shoutAmt").textContent = naira(amount); $("#shoutWho").textContent = who;
+  $("#shout").classList.add("on"); clearTimeout(shoutTimer); shoutTimer = setTimeout(() => $("#shout").classList.remove("on"), 2200);
+}
+function tick(f) {
+  const t = el("div", { class: "tick" }, el("b", {}, f.guest), f.finale ? " finale rain on " : " sprayed ", el("b", {}, f.recipient), " " + naira(f.amount));
+  $("#ticker").prepend(t); while ($("#ticker").children.length > 4) $("#ticker").lastChild.remove();
+}
+function render(d) {
+  $("#name").textContent = d.event.name; document.title = d.event.name + " · big screen";
+  $("#total").textContent = naira(d.sprayed);
+  $("#count").textContent = d.sprayers ? `sprayed tonight by ${d.sprayers} ${d.sprayers === 1 ? "person" : "people"}` : "Be the first to spray!";
+  $("#board").hidden = !d.top.length;
+  $("#top").replaceChildren(...d.top.map((t, i) => el("li", {}, el("span", {}, `${i + 1}. ${t.guest}`), el("span", {}, naira(t.total)))));
+}
+let polling = false;
+async function poll(initial = false) {
+  if (polling && !initial) return; polling = true;
+  try {
+    const d = await api(`/events/${CODE}/feed?since=${since}`);
+    $("#offline").hidden = true; render(d);
+    const finale = d.flicks.filter((f) => f.finale);
+    for (const f of d.flicks) {
+      since = Math.max(since, f.id);
+      if (initial) continue;                                   // don't replay sprays from before the screen opened
+      if (f.finale) continue;
+      spawn(f.note, Math.min(f.notes, 25)); tick(f);
+      if (f.amount >= 10000) shout(f.amount, `${f.guest} → ${f.recipient}`);
+    }
+    if (!initial && finale.length && !finaleShown) {
+      finaleShown = true;
+      const sum = finale.reduce((a, f) => a + f.amount, 0);
+      shout(sum, "FINALE RAIN 💸");
+      finale.forEach((f, i) => setTimeout(() => { spawn(f.note, 40, true); tick(f); }, i * 400));
+      for (let i = 0; i < 6; i++) setTimeout(() => spawn(1000, 60), i * 500);
+    }
+    if (initial && d.flicks.length === 200) { polling = false; return poll(true); }
+  } catch { $("#offline").hidden = false; }
+  polling = false;
+}
+(async () => {
+  const url = location.origin + "/e/" + CODE;
+  qr($("#qr"), url); $("#code").textContent = CODE; $("#url").textContent = location.host + "/e/" + CODE;
+  await poll(true);
+  setInterval(poll, 1000);
+})();
+$("#fs").onclick = () => document.documentElement.requestFullscreen?.();
+document.addEventListener("fullscreenchange", () => ($("#fs").hidden = Boolean(document.fullscreenElement)));
+</script>
+</body></html>

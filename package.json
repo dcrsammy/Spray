@@ -1,0 +1,6 @@
+{
+  "name": "spray",
+  "private": true,
+  "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy" },
+  "devDependencies": { "wrangler": "^4.0.0", "qrcode-generator": "^1.4.4" }
+}

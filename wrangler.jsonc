@@ -1,0 +1,14 @@
+{
+  // Spray (working name): digital money spraying. Web pages in public/, API in worker/.
+  "name": "spray",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-06-01",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "spray", "database_id": "PASTE_D1_DATABASE_ID" }
+  ],
+  "vars": {
+    "PAYMENTS_MODE": "demo"   // "demo": no real money. Switch to "paystack" once keys and subaccounts are set up.
+  },
+  "observability": { "enabled": true }
+}

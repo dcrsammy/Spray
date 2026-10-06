@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Host dashboard · Spray</title><meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>.status{font-weight:800;text-transform:capitalize}.status.open{color:var(--green)}.status.closing{color:var(--gold)}.status.ended{color:var(--mute)}.qr{width:150px}.scroll{overflow-x:auto}</style>
+</head><body>
+<div class="wrap wide">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span class="badge" id="code"></span></header>
+  <p class="muted" id="msg">Loading…</p>
+  <div id="dash" hidden>
+    <h2 id="name"></h2>
+    <p style="margin-bottom:16px">Status: <span class="status" id="status"></span></p>
+    <div class="grid2">
+      <div class="card"><p class="muted small">Sprayed so far</p><div class="big" id="total">₦0</div><p class="muted small" id="stacks"></p></div>
+      <div class="card" id="partnerCard" hidden><p class="muted small">Earned by <span id="partner"></span></p><div class="big" id="pEarn">₦0</div><p class="muted small">Their share of the service fees</p></div>
+      <div class="card" style="display:flex;gap:14px;align-items:center"><div class="qr" id="qr"></div><div><p class="muted small">Guest code</p><div class="big" id="gcode"></div><a href="#" id="screen" target="_blank" rel="noopener">Open the big screen</a></div></div>
+    </div>
+    <div class="card">
+      <h3>End of the night</h3>
+      <p class="muted small" style="margin-bottom:12px"><b>Wind down</b> reminds every guest who still has money in their stack to throw it. <b>End & finale</b> sends whatever is left to the people it was meant for, in one big rain on the screen.</p>
+      <div class="row"><button class="btn" id="wind">Wind down</button><button class="btn danger" id="end">End & finale</button></div>
+      <div class="err" id="err" role="alert"></div>
+    </div>
+    <div class="card"><h3>Who received what</h3><div class="scroll"><table><thead><tr><th>Name</th><th>Role</th><th class="num">Stacks</th><th class="num">Total</th></tr></thead><tbody id="byRec"></tbody></table></div></div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px"><h3 style="margin:0">Who sprayed what</h3><button class="btn" id="csv" style="width:auto;min-height:40px">Download list</button></div>
+      <p class="muted small" style="margin-bottom:8px">Keep this so you can return the love at their next party.</p>
+      <div class="scroll"><table><thead><tr><th>Time</th><th>Guest</th><th>Sprayed</th><th class="num">Amount</th></tr></thead><tbody id="ledger"></tbody></table></div>
+    </div>
+  </div>
+</div>
+<script src="/common.js"></script><script src="/qrcode.js"></script>
+<script>
+const CODE = codeFromPath();
+// Host key: saved on this phone when the party was created, or passed once as #k=… to open it on another device
+const fromHash = new URLSearchParams(location.hash.slice(1)).get("k");
+if (fromHash) { const h = store.get("hostKeys") || {}; h[CODE] = fromHash; store.set("hostKeys", h); history.replaceState(null, "", location.pathname); }
+const KEY = (store.get("hostKeys") || {})[CODE];
+const H = { "X-Host-Key": KEY || "" };
+let last;
+$("#code").textContent = CODE;
+
+async function load() {
+  try {
+    const d = last = await api(`/events/${CODE}/dashboard`, { headers: H });
+    $("#msg").hidden = true; $("#dash").hidden = false;
+    $("#name").textContent = d.event.name;
+    $("#status").textContent = d.event.status === "closing" ? "winding down" : d.event.status; $("#status").className = "status " + d.event.status;
+    $("#total").textContent = naira(d.total); $("#stacks").textContent = `${d.ledger.length} stack${d.ledger.length === 1 ? "" : "s"} bought`;
+    $("#partnerCard").hidden = !d.event.partner; $("#partner").textContent = d.event.partner || ""; $("#pEarn").textContent = naira(d.partnerEarnings);
+    $("#wind").disabled = d.event.status !== "open"; $("#end").disabled = d.event.status === "ended";
+    $("#byRec").replaceChildren(...d.byRecipient.map((r) => el("tr", {}, el("td", {}, r.name), el("td", { class: "muted" }, r.role || ""), el("td", { class: "num" }, r.stacks), el("td", { class: "num" }, naira(r.total)))));
+    $("#ledger").replaceChildren(...(d.ledger.length ? d.ledger.map((x) => el("tr", {},
+      el("td", { class: "muted" }, new Date(x.created).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
+      el("td", {}, x.anonymous ? `${x.guest} (anonymous on screen)` : x.guest), el("td", {}, x.recipient), el("td", { class: "num" }, naira(x.amount))))
+      : [el("tr", {}, el("td", { colspan: 4, class: "muted" }, "No sprays yet."))]));
+  } catch (x) { $("#msg").hidden = false; $("#msg").textContent = /host/.test(x.message) ? "This dashboard only opens on the phone that created the party." : x.message; }
+}
+async function setStatus(status) {
+  $("#err").textContent = "";
+  try { const r = await api(`/events/${CODE}/status`, { method: "POST", headers: H, body: { status } }); toast(status === "ended" ? `Party ended. ${r.finaleStacks} stack${r.finaleStacks === 1 ? "" : "s"} went out in the finale.` : "Guests are being reminded."); load(); }
+  catch (x) { $("#err").textContent = x.message; }
+}
+$("#wind").onclick = () => setStatus("closing");
+$("#end").onclick = () => { if (confirm("End the party? Everything left in guests' stacks will rain in the finale, and no more spraying after that.")) setStatus("ended"); };
+$("#csv").onclick = () => {
+  const rows = [["Time", "Guest", "Anonymous on screen", "Sprayed", "Role", "Amount (NGN)"], ...last.ledger.map((x) => [x.created, x.guest, x.anonymous ? "yes" : "no", x.recipient, x.role || "", x.amount])];
+  const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const a = el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: `${CODE}-who-sprayed.csv` }); a.click();
+};
+qr($("#qr"), location.origin + "/e/" + CODE); $("#gcode").textContent = CODE; $("#screen").href = "/s/" + CODE;
+if (!KEY) { $("#msg").textContent = "This dashboard only opens on the phone that created the party."; } else { load(); setInterval(load, 5000); }
+</script>
+</body></html>

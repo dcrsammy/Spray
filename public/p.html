@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Your spray code · Spray</title><meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>.qr{width:230px;margin:14px auto}.code{font:800 2.6rem var(--display);letter-spacing:.18em;text-align:center}</style>
+</head><body>
+<div class="wrap">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a></header>
+
+  <form id="make" hidden>
+    <h2>Get your spray code</h2>
+    <p class="muted" style="margin-bottom:16px">Show it at any party or club and people can spray you straight from their phones. Dancers, hype men, comedians, birthday people: this is for you.</p>
+    <div class="field"><label for="name">Your name, as people know you</label><input id="name" required maxlength="30" placeholder="e.g. Kemi Dance"></div>
+    <div class="field"><label for="phone">Phone number</label><input id="phone" inputmode="tel" maxlength="20" placeholder="0803 000 0000"></div>
+    <p class="muted small" style="margin-bottom:14px">In the full version you'll add the bank account your sprays are paid into.</p>
+    <div class="err" id="err" role="alert"></div>
+    <button class="btn gold">Get my code</button>
+  </form>
+
+  <section id="mine" hidden>
+    <div class="card" style="text-align:center">
+      <p class="muted">Show this to anyone who wants to spray you</p>
+      <div class="qr" id="qr"></div>
+      <div class="code" id="code"></div>
+      <h2 id="pname" style="margin-top:6px"></h2>
+      <p class="muted small" id="received"></p>
+    </div>
+    <p class="muted small">Tip: add this page to your home screen so your code is one tap away.</p>
+  </section>
+
+  <section id="theirs" hidden><div class="card" style="text-align:center"><p class="muted">Spray code</p><div class="code" id="tcode"></div><h2 id="tname"></h2><p class="muted small">To spray them, open the party page you're at and enter this code.</p></div></section>
+  <p class="err" id="nf"></p>
+</div>
+<script src="/common.js"></script><script src="/qrcode.js"></script>
+<script>
+const path = codeFromPath();
+const me = store.get("me");
+async function showMine(m) {
+  $("#make").hidden = true; $("#mine").hidden = false;
+  qr($("#qr"), m.code); $("#code").textContent = m.code; $("#pname").textContent = m.name;
+  try { const p = await api("/people/" + m.code, { headers: { "X-Person-Key": m.key } });
+    if (p.received) $("#received").textContent = p.received.stacks ? `You've received ${naira(p.received.total)} from ${p.received.stacks} stack${p.received.stacks === 1 ? "" : "s"}.` : "No sprays yet. Go and dance! 💃"; } catch {}
+}
+(async () => {
+  if (path && (!me || me.code !== path)) {
+    try { const p = await api("/people/" + path); $("#theirs").hidden = false; $("#tcode").textContent = p.code; $("#tname").textContent = p.name; }
+    catch (x) { $("#nf").textContent = x.message; }
+  } else if (me) showMine(me);
+  else $("#make").hidden = false;
+})();
+$("#make").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("#err").textContent = ""; e.submitter.disabled = true;
+  try { const r = await api("/people", { method: "POST", body: { name: $("#name").value, phone: $("#phone").value } }); store.set("me", r); history.replaceState(null, "", "/p/" + r.code); showMine(r); }
+  catch (x) { $("#err").textContent = x.message; } finally { e.submitter.disabled = false; }
+});
+</script>
+</body></html>

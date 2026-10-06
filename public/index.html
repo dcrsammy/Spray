@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Spray: make it rain without cash</title>
+<meta name="description" content="Spray the celebrants, the DJ or the artist from your phone. Notes rain on the big screen with your name. No cash, no download.">
+<meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .hero{padding:28px 0 8px}
+  .hero h1 span{color:var(--gold)}
+  .how{counter-reset:s;display:grid;gap:10px;margin:18px 0 22px;padding:0;list-style:none}
+  .how li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;color:var(--mute)}
+  .how li::before{content:counter(s);flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--night-3);border:1px solid var(--line);color:var(--gold);font-weight:800}
+  .how b{color:var(--text)}
+  .join{display:flex;gap:8px}.join input{text-transform:uppercase;letter-spacing:.15em;font-weight:700}.join .btn{width:auto}
+</style>
+</head><body>
+<div class="wrap">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span class="badge demo">Preview: no real money</span></header>
+  <section class="hero">
+    <h1>Make it rain.<br><span>No cash.</span></h1>
+    <p class="lede">Spray the celebrants, the DJ or the artist from your phone. Notes rain on the big screen with your name on them, and the money goes straight to them.</p>
+  </section>
+  <ol class="how">
+    <li><span><b>Scan the code</b> on the screen or your table. Nothing to download.</span></li>
+    <li><span><b>Pick who you're spraying</b> and buy a stack, by transfer or card.</span></li>
+    <li><span><b>Flick your phone.</b> Every note lands on the big screen, live.</span></li>
+  </ol>
+  <div class="card">
+    <h3>At a party already?</h3>
+    <form class="join" id="join"><input id="code" maxlength="6" placeholder="Party code" aria-label="Party code" autocomplete="off"><button class="btn gold">Spray</button></form>
+  </div>
+  <div class="stack">
+    <a class="btn gold" href="/host.html">Set up a party or club night</a>
+    <a class="btn" href="/p">Get your own spray code</a>
+  </div>
+  <p class="muted small" style="margin-top:22px">Spraying naira notes is against the law in Nigeria. This keeps the tradition alive, legally, and gives celebrants a record of everyone who showed love.</p>
+</div>
+<script src="/common.js"></script>
+<script>
+$("#join").addEventListener("submit", (e) => { e.preventDefault(); const c = $("#code").value.trim().toUpperCase(); if (c) location.href = "/e/" + c; });
+</script>
+</body></html>

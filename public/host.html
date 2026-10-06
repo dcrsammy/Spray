@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Set up a party · Spray</title><meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>.rec{display:grid;grid-template-columns:1fr 9rem 2.6rem;gap:8px;margin-bottom:8px}.rec .x{width:2.6rem;padding:0}.done .qr{width:200px}</style>
+</head><body>
+<div class="wrap">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a></header>
+
+  <form id="setup">
+    <h2>Set up your party</h2>
+    <p class="muted" style="margin-bottom:16px">Takes a minute. You'll get a code for guests and a link for the big screen.</p>
+    <div class="field"><label for="name">Name of the party</label><input id="name" required maxlength="60" placeholder="Tunde & Bisi's Wedding"></div>
+    <div class="field"><label>What kind?</label>
+      <div class="chips" id="kind">
+        <button type="button" class="chip" data-v="wedding" aria-pressed="true">Wedding</button>
+        <button type="button" class="chip" data-v="birthday" aria-pressed="false">Birthday</button>
+        <button type="button" class="chip" data-v="club" aria-pressed="false">Club night</button>
+        <button type="button" class="chip" data-v="other" aria-pressed="false">Other</button>
+      </div>
+    </div>
+    <div class="field"><label>Who can guests spray?</label>
+      <div id="recs"></div>
+      <button type="button" class="btn ghost" id="addRec">+ Add someone</button>
+      <p class="muted small" style="margin-top:6px">Celebrants, the DJ, the band, the MC, the dancers. Guests can also spray anyone in the room who shows a personal spray code.</p>
+    </div>
+    <div class="field"><label for="partner">DJ, MC or planner who brought you here (optional)</label><input id="partner" maxlength="40" placeholder="e.g. DJ Kaywise"><p class="muted small" style="margin-top:6px">They earn a share of the fees from this party.</p></div>
+    <div class="err" id="err" role="alert"></div>
+    <button class="btn gold">Create party</button>
+  </form>
+
+  <section class="done" id="done" hidden>
+    <h2>You're set 🎉</h2>
+    <p class="muted" style="margin-bottom:16px">Keep this page safe: it's your host access on this phone.</p>
+    <div class="card" style="text-align:center">
+      <p class="muted small">Guests scan this, or type the code</p>
+      <div class="qr" id="qr" style="margin:12px auto"></div>
+      <div class="big" id="pcode"></div>
+    </div>
+    <div class="stack">
+      <a class="btn gold" id="screenLink" target="_blank" rel="noopener">Open the big screen</a>
+      <a class="btn" id="dashLink">Host dashboard</a>
+      <a class="btn ghost" id="guestLink" target="_blank" rel="noopener">Try it as a guest</a>
+    </div>
+    <p class="muted small" style="margin-top:14px">Open the big screen on the laptop connected to the projector or LED wall, then press F11 for full screen.</p>
+  </section>
+</div>
+<script src="/common.js"></script><script src="/qrcode.js"></script>
+<script>
+const recs = $("#recs");
+function addRec(name = "", role = "") {
+  const r = el("div", { class: "rec" },
+    el("input", { placeholder: "Name", maxlength: 30, value: name, "aria-label": "Name" }),
+    el("input", { placeholder: "Role", maxlength: 20, value: role, "aria-label": "Role", list: "roles" }),
+    el("button", { type: "button", class: "btn x", "aria-label": "Remove", onclick: () => r.remove() }, "×"));
+  recs.append(r);
+}
+document.body.append(el("datalist", { id: "roles" }, ...["Bride", "Groom", "Celebrant", "DJ", "MC", "Band", "Artist", "Hype man", "Dancers"].map((v) => el("option", { value: v }))));
+addRec("", "Celebrant"); addRec("", "DJ");
+$("#addRec").onclick = () => addRec();
+$$("#kind .chip").forEach((c) => c.onclick = () => $$("#kind .chip").forEach((x) => x.setAttribute("aria-pressed", String(x === c))));
+
+$("#setup").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("#err").textContent = "";
+  const btn = e.submitter; btn.disabled = true;
+  try {
+    const recipients = $$(".rec", recs).map((r) => ({ name: $$("input", r)[0].value, role: $$("input", r)[1].value }));
+    const kind = $("#kind [aria-pressed=true]").dataset.v;
+    const r = await api("/events", { method: "POST", body: { name: $("#name").value, kind, recipients, partner: $("#partner").value } });
+    const hosts = store.get("hostKeys") || {}; hosts[r.code] = r.hostKey; store.set("hostKeys", hosts);
+    const guest = location.origin + "/e/" + r.code;
+    qr($("#qr"), guest); $("#pcode").textContent = r.code;
+    $("#screenLink").href = "/s/" + r.code; $("#dashLink").href = "/d/" + r.code; $("#guestLink").href = guest;
+    $("#setup").hidden = true; $("#done").hidden = false; scrollTo(0, 0);
+  } catch (x) { $("#err").textContent = x.message; } finally { btn.disabled = false; }
+});
+</script>
+</body></html>
