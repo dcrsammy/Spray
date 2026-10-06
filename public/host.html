@@ -125,7 +125,7 @@ const removedTypes = [], removedRecs = [];
 let editData = null;
 const pick = (box, v) => $$(".chip", box).forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.v === v)));
 $$("#kind .chip").forEach((c) => c.onclick = () => pick($("#kind"), c.dataset.v));
-$$("#mode .chip").forEach((c) => c.onclick = () => { pick($("#mode"), c.dataset.v); $$(".mode").forEach((m) => (m.hidden = m.dataset.mode !== c.dataset.v)); });
+$$("#mode .chip").forEach((c) => c.onclick = () => { pick($("#mode"), c.dataset.v); $$(".mode").forEach((m) => (m.hidden = m.dataset.mode !== c.dataset.v)); if (c.dataset.v === "types" && !$$(".ttype").length) addType({ name: "Regular" }); });
 const field = (lab, attrs, cls = "") => el("div", { class: cls }, el("label", {}, lab), el("input", attrs));
 
 function addType(t = {}) {
@@ -196,7 +196,7 @@ $("#setup").addEventListener("submit", async (e) => {
     if (mode !== "none" && !startsAt) throw new Error("Add the date of the event.");
     const r = await api("/events", { method: "POST", body });
     const hosts = store.get("hostKeys") || {}; hosts[r.code] = r.hostKey; store.set("hostKeys", hosts);
-    const url = location.origin + (mode === "none" ? "/e/" : "/ev/") + r.code;
+    const url = location.origin + (mode === "none" && !startsAt ? "/e/" : "/ev/") + r.code;
     qr($("#qr"), url); $("#evUrl").textContent = url.replace(/^https?:\/\//, "");
     $("#evLink").href = url; $("#dashLink").href = "/d/" + r.code; $("#screenLink").href = "/s/" + r.code;
     $("#copy").onclick = () => navigator.clipboard.writeText(url).then(() => toast("Link copied"));
@@ -218,8 +218,10 @@ async function loadEdit() {
   $("#about").value = e.about || ""; $("#venue").value = e.venue || ""; $("#address").value = e.address || ""; $("#city").value = e.city || "";
   $("#hidden").checked = e.venueHidden; $("#age").checked = e.ageMin >= 18; $("#contact").value = e.contact || ""; $("#partner").value = e.partner || ""; $("#listed").checked = e.listed;
   includes.push(...e.includes); renderInc();
-  $$("#mode .chip").forEach((c) => { if (c.dataset.v !== e.ticketing) c.hidden = true; });
-  $(`#mode .chip[data-v=${e.ticketing}]`).click(); $("#modeLocked").hidden = e.ticketing === "none";
+  const soldAny = editData.tickets.some((t) => t.sold > 0);
+  if (soldAny) $$("#mode .chip").forEach((c) => { if (c.dataset.v !== e.ticketing) c.hidden = true; });
+  $("#modeLocked").hidden = !soldAny;
+  $("#modeLocked").textContent = "Tickets have already gone out, so the ticket style is fixed. Prices, quantities and ticket types can still change.";
   const t = editData.tickets;
   if (e.ticketing === "types") t.forEach(addType);
   if (e.ticketing === "single" && t[0]) {
@@ -229,6 +231,7 @@ async function loadEdit() {
   }
   if (e.ticketing === "free" && t[0]) $("#fcap").value = t[0].quantity ?? "";
   editData.recipients.forEach((r) => addRec(r.name, r.role || "", r.id, r.stacks));
+  $(`#mode .chip[data-v=${e.ticketing}]`).click();   // after the ticket rows exist, so no blank row gets added
   $("#go").disabled = false;
 }
 if (EDIT && session()) loadEdit();

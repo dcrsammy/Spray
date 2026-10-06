@@ -82,7 +82,7 @@ async function boot() {
   if (e.startsAt) { $("#chipdate").textContent = new Date(e.startsAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", day: "numeric", month: "short" }); $("#chipdate").hidden = false; }
   $("#name").textContent = e.name;
   if (e.ageMin) $("#tags").append(el("span", { class: "tag age" }, e.ageMin + "+"));
-  $("#facts").append(fact("📅", when(e.startsAt), ""));
+  if (e.startsAt) $("#facts").append(fact("📅", when(e.startsAt), ""));
   $("#facts").append(e.venueHidden
     ? fact("📍", e.city ? `${e.city}: venue revealed on your ticket` : "Venue revealed on your ticket", "")
     : fact("📍", e.venue || e.city || "Venue to be announced", [e.address, e.venue && e.city].filter(Boolean).join(" · ")));
@@ -92,7 +92,11 @@ async function boot() {
   if (e.contact) $("#contact").textContent = "Enquiries & sponsorship: " + e.contact;
 
   if (e.status === "ended") return closed("This event has ended.");
-  if (e.ticketing === "none") return closed("No tickets needed. Just come and spray!");
+  if (e.ticketing === "none") {
+    closed(e.contact ? `No tickets on ${BRAND.name} for this one. For tables and enquiries, call ${e.contact}.` : `No tickets on ${BRAND.name} for this one. See the flyer for entry details.`);
+    $("#closed").append(el("a", { class: "btn gold", href: "/e/" + e.code, style: "margin-top:12px" }, "Spray on the night 💸"));
+    return;
+  }
   $("#buy").hidden = false; $("#ageRow").hidden = !e.ageMin;
   $("#buyTitle").textContent = e.ticketing === "free" ? "RSVP" : e.ticketing === "single" ? e.priceLabel : "Tickets";
   if (e.ticketing === "free") $("#sumCard").hidden = true;

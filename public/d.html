@@ -76,7 +76,7 @@ async function load() {
     $("#status").textContent = d.event.status === "closing" ? "winding down" : d.event.status; $("#status").className = "status " + d.event.status;
     countTo($("#total"), d.total, naira); $("#stacks").textContent = `${d.ledger.length} stack${d.ledger.length === 1 ? "" : "s"} bought`;
     $("#partnerCard").hidden = !d.event.partner; $("#partner").textContent = d.event.partner || ""; countTo($("#pEarn"), d.partnerEarnings, naira);
-    renderTix(d); $("#pageLink").href = (d.event.ticketing === "none" ? "/e/" : "/ev/") + CODE;
+    renderTix(d); $("#pageLink").href = "/ev/" + CODE;
     $("#wind").disabled = d.event.status !== "open"; $("#end").disabled = d.event.status === "ended";
     $("#byRec").replaceChildren(...d.byRecipient.map((r) => el("tr", {}, el("td", {}, r.name), el("td", { class: "muted" }, r.role || ""), el("td", { class: "num" }, r.stacks), el("td", { class: "num" }, naira(r.total)))));
     $("#ledger").replaceChildren(...(d.ledger.length ? d.ledger.map((x) => el("tr", {},

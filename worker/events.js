@@ -244,7 +244,11 @@ export async function eventsApi(req, env, path, body) {
   if (sub === "edit" && m === "POST") {
     await hostOnly(env, req, e);
     const name = clean(body.name, 60); if (!name) fail(400, "The event needs a name.");
-    const ticketing = e.ticketing || "none";
+    // The ticket style can change until the first ticket (or RSVP) goes out
+    const was = e.ticketing || "none", sold = (await D.first("SELECT COALESCE(SUM(sold),0) AS n FROM ticket_types WHERE event_id=?", e.id)).n;
+    const ticketing = ["none", "free", "single", "types"].includes(body.ticketing) ? body.ticketing : was;
+    const switching = ticketing !== was;
+    if (switching && sold) fail(409, "Tickets have already gone out, so the ticket style can't change now. You can still change prices and quantities.");
     if (ticketing !== "none" && !body.startsAt) fail(400, "Add the date and time of the event.");
     const includes = (Array.isArray(body.includes) ? body.includes : []).map((x) => clean(x, 40)).filter(Boolean).slice(0, 10);
     const kind = ["wedding", "birthday", "club", "other"].includes(body.kind) ? body.kind : e.kind;
@@ -255,12 +259,14 @@ export async function eventsApi(req, env, path, body) {
       name, kind, toTime(body.startsAt), clean(body.venue, 80) || null, clean(body.address, 160) || null, clean(body.city, 40) || null, body.venueHidden ? 1 : 0, Number(body.ageMin) === 18 ? 18 : 0,
       clean(body.about, 1000) || null, JSON.stringify(includes), clean(body.priceLabel, 20) || e.price_label || "Ticket", clean(body.contact, 40) || null, flyer, body.listed ? 1 : 0, clean(body.partner, 40) || null, e.id)];
 
+    if (switching) stmts.push(D.p("DELETE FROM ticket_types WHERE event_id=?", e.id), D.p("UPDATE events SET ticketing=? WHERE id=?", ticketing, e.id));
     if (ticketing !== "none") {
-      const old = new Map((await D.all("SELECT * FROM ticket_types WHERE event_id=?", e.id)).map((t) => [t.id, t]));
-      const incoming = (Array.isArray(body.tickets) ? body.tickets : []).slice(0, 8);
+      const old = switching ? new Map() : new Map((await D.all("SELECT * FROM ticket_types WHERE event_id=?", e.id)).map((t) => [t.id, t]));
+      let incoming = (Array.isArray(body.tickets) ? body.tickets : []).slice(0, 8);
+      if (switching) incoming = incoming.filter((t) => !t.remove).map((t) => ({ ...t, id: undefined }));
       const keep = incoming.filter((t) => !t.remove);
       if (!keep.length) fail(400, "Keep at least one ticket type.");
-      if (ticketing !== "types" && keep.length > 1) fail(400, "This event has a single price. Switch to ticket types by creating a new event.");
+      if (ticketing !== "types" && keep.length > 1) fail(400, "Choose “Ticket types” to sell more than one kind of ticket.");
       incoming.forEach((t, i) => {
         const was = t.id ? old.get(Number(t.id)) : null;
         if (t.id && !was) fail(400, "One of those ticket types no longer exists. Reload the page.");

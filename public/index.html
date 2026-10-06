@@ -118,7 +118,7 @@ api("/listing").then(({ events }) => {
     e.flyer ? el("img", { src: e.flyer, alt: "", loading: "lazy" }) : el("span", { class: "ph" }, "🎉"),
     el("span", { class: "shade" }),
     e.ageMin ? el("span", { class: "age" }, e.ageMin + "+") : "",
-    el("span", { class: "price" }, e.ticketing === "free" ? "Free RSVP" : e.ticketing === "none" ? "Free entry" : e.from != null ? "from " + naira(e.from) : ""),
+    e.ticketing === "none" ? "" : el("span", { class: "price" }, e.ticketing === "free" ? "Free RSVP" : e.from != null ? "from " + naira(e.from) : ""),
     el("div", { class: "info" }, el("span", { class: "date" }, day(e.startsAt)), el("h3", {}, e.name), el("span", { class: "muted small" }, [new Date(e.startsAt).toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour: "numeric", minute: "2-digit", hour12: true }), e.city].filter(Boolean).join(" · "))))));
   $("#dots").replaceChildren(...events.map(() => el("b")));
   shape();

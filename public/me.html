@@ -53,7 +53,7 @@ $("#out").onclick = async () => { await api("/auth/logout", { method: "POST" }).
     el("div", { class: "acts" },
       el("a", { class: "btn gold", href: "/d/" + e.code }, "Dashboard"),
       el("a", { class: "btn", href: "/edit/" + e.code }, "Edit"),
-      el("a", { class: "btn", href: (e.ticketing === "none" ? "/e/" : "/ev/") + e.code }, "Event page"),
+      el("a", { class: "btn", href: (e.startsAt ? "/ev/" : "/e/") + e.code }, "Event page"),
       e.ticketing !== "none" ? el("a", { class: "btn", href: "/door/" + e.code }, "Door scanner") : el("a", { class: "btn", href: "/s/" + e.code }, "Big screen")))));
 })();
 </script>
