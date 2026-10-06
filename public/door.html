@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Door check-in · Spray</title><meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .cam{position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;background:#000;margin:12px 0}
+  .cam video{width:100%;height:100%;object-fit:cover}
+  .cam .frame{position:absolute;inset:18%;border:3px solid var(--gold);border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+  .result{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:8px}
+  .result.ok{background:#0f7a43}.result.bad{background:#a3242a}.result.warn{background:#a86b00}
+  .result b{font:800 clamp(2.2rem,11vw,3.4rem)/1 var(--display)}.result p{font-size:1.25rem;font-weight:600}
+  .stats{display:flex;justify-content:space-between;font-weight:700}
+</style>
+</head><body>
+<div class="wrap">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span class="badge">Door</span></header>
+  <p class="muted" id="msg">Checking your door link…</p>
+  <main id="page" hidden>
+    <h2 id="name"></h2>
+    <div class="stats"><span>Inside: <span id="inside">0</span></span><span class="muted">Expected: <span id="expected">0</span></span></div>
+    <div class="cam"><video id="video" playsinline muted></video><div class="frame"></div></div>
+    <button class="btn gold" id="start">Start scanning</button>
+    <form class="row" id="manual" style="margin-top:12px"><input id="code" placeholder="Or type the ticket code" autocomplete="off" style="text-transform:uppercase"><button class="btn" style="flex:0 0 auto;width:auto">Check</button></form>
+  </main>
+</div>
+<div class="result" id="result" hidden role="alert"><b id="rTitle"></b><p id="rText"></p><p id="rSub" style="font-size:1rem;opacity:.85"></p></div>
+<script src="/common.js"></script><script src="/jsqr.js"></script>
+<script>
+const CODE = codeFromPath();
+const hash = new URLSearchParams(location.hash.slice(1));
+if (hash.get("d")) { const k = store.get("doorKeys") || {}; k[CODE] = hash.get("d"); store.set("doorKeys", k); history.replaceState(null, "", location.pathname); }
+const H = { "X-Door-Key": (store.get("doorKeys") || {})[CODE] || "", "X-Host-Key": (store.get("hostKeys") || {})[CODE] || "" };
+let busy = false, lastCode = "", lastAt = 0, scanning = false;
+
+(async () => {
+  try {
+    const d = await api(`/events/${CODE}/door`, { headers: H });
+    $("#msg").hidden = true; $("#page").hidden = false; $("#name").textContent = d.event.name;
+    $("#inside").textContent = d.inside; $("#expected").textContent = d.expected;
+  } catch (x) { $("#msg").textContent = x.message; }
+})();
+
+function show(kind, title, text, sub = "") {
+  $("#rTitle").textContent = title; $("#rText").textContent = text; $("#rSub").textContent = sub;
+  const r = $("#result"); r.className = "result " + kind; r.hidden = false;
+  navigator.vibrate?.(kind === "ok" ? 80 : [120, 60, 120]);
+  setTimeout(() => { r.hidden = true; busy = false; }, kind === "ok" ? 1800 : 2600);
+}
+async function check(raw) {
+  const c = String(raw || "").trim().toUpperCase(); if (!c || busy) return;
+  if (c === lastCode && Date.now() - lastAt < 4000) return;   // same QR still in front of the camera
+  busy = true; lastCode = c; lastAt = Date.now();
+  try {
+    const r = await api(`/events/${CODE}/checkin`, { method: "POST", headers: H, body: { ticket: c } });
+    $("#inside").textContent = r.inside;
+    show("ok", r.admits > 1 ? `Admit ${r.admits}` : "Welcome in", r.name, r.type);
+  } catch (x) {
+    let info = {}; try { info = JSON.parse(x.raw || "{}"); } catch {}
+    if (/Already used/.test(x.message)) show("warn", "Already used", "This ticket was scanned before.", "");
+    else if (/different event/.test(x.message)) show("bad", "Wrong event", x.message);
+    else show("bad", "Not valid", x.message);
+  }
+}
+$("#manual").addEventListener("submit", (e) => { e.preventDefault(); check($("#code").value); $("#code").value = ""; });
+
+$("#start").onclick = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    const v = $("#video"); v.srcObject = stream; await v.play();
+    $("#start").hidden = true; scanning = true;
+    const c = document.createElement("canvas"), ctx = c.getContext("2d", { willReadFrequently: true });
+    const loop = () => {
+      if (!scanning) return;
+      if (!busy && v.readyState >= 2) {
+        const s = Math.min(v.videoWidth, v.videoHeight); c.width = c.height = Math.min(s, 640);
+        ctx.drawImage(v, (v.videoWidth - s) / 2, (v.videoHeight - s) / 2, s, s, 0, 0, c.width, c.height);
+        const hit = jsQR(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts: "dontInvert" });
+        if (hit && hit.data) check(hit.data);
+      }
+      requestAnimationFrame(loop);
+    };
+    loop();
+  } catch { toast("Allow camera access to scan tickets, or type the code below."); }
+};
+</script>
+</body></html>

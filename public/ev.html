@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Event · Spray</title><meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .flyer{width:100%;border-radius:18px;display:block;margin-bottom:16px;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+  .facts{display:grid;gap:8px;margin:14px 0 18px}
+  .fact{display:flex;gap:10px;align-items:flex-start}.fact b{display:block}.fact .ic{flex:none;width:34px;height:34px;border-radius:10px;background:var(--night-3);display:grid;place-items:center}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.tag{background:var(--night-3);border:1px solid var(--line);border-radius:999px;padding:.3rem .7rem;font-size:.85rem}
+  .tag.age{border-color:var(--red);color:var(--red);font-weight:700}
+  .tt{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .tt:last-child{border:0}.tt .p{font-weight:800;font-size:1.05rem}.tt s{color:var(--mute);font-weight:500;margin-left:6px}
+  .tt small{display:block;color:var(--mute)}.tt .early{color:var(--gold)}
+  .step{display:flex;align-items:center;gap:10px}.step button{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--night-3);color:var(--text);font-size:1.3rem;cursor:pointer}
+  .step b{min-width:1.4rem;text-align:center;font-variant-numeric:tabular-nums}
+  .soldout{color:var(--red);font-weight:700}
+  .bar{position:sticky;bottom:0;background:linear-gradient(transparent,var(--night) 30%);padding:18px 0 calc(10px + env(safe-area-inset-bottom))}
+</style>
+</head><body>
+<div class="wrap">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span class="badge demo" id="demo" hidden>Preview: no real money</span></header>
+  <p class="muted" id="loading">Loading…</p>
+  <main id="page" hidden>
+    <img class="flyer" id="flyer" alt="" hidden>
+    <h1 id="name" style="font-size:clamp(1.8rem,7vw,2.6rem)"></h1>
+    <div class="tags" id="tags"></div>
+    <div class="facts" id="facts"></div>
+    <p id="about" style="white-space:pre-line;margin-bottom:16px" hidden></p>
+    <div class="card" id="incCard" hidden><h3 id="incTitle">What's included</h3><div class="tags" id="inc"></div></div>
+    <div class="card" id="lineupCard" hidden><h3>Lineup</h3><div class="tags" id="lineup"></div><p class="muted small">Spray them live on the night from your phone.</p></div>
+
+    <section id="buy" hidden>
+      <h2 id="buyTitle" style="margin-top:8px">Tickets</h2>
+      <div class="card" id="types"></div>
+      <div class="card">
+        <div class="field"><label for="bname">Name on the ticket</label><input id="bname" maxlength="40" autocomplete="name"></div>
+        <div class="field"><label for="bphone">Phone number</label><input id="bphone" inputmode="tel" maxlength="20" autocomplete="tel"></div>
+        <div class="field"><label for="bemail">Email (optional)</label><input id="bemail" type="email" maxlength="80" autocomplete="email"></div>
+        <label class="check" id="ageRow" hidden><input type="checkbox" id="ageOk"> I'm 18 or older</label>
+      </div>
+      <div class="card" id="sumCard">
+        <div class="sum"><span>Tickets</span><span id="sSub">₦0</span></div>
+        <div class="sum"><span>Service fee</span><span id="sFee">₦0</span></div>
+        <div class="sum total"><span>Total</span><span id="sTot">₦0</span></div>
+      </div>
+      <div class="err" id="err" role="alert"></div>
+      <div class="bar"><button class="btn gold" id="go" disabled>Choose your tickets</button></div>
+    </section>
+    <div class="card" id="closed" hidden><p class="muted" id="closedMsg"></p></div>
+    <p class="muted small" id="contact" style="margin-top:10px"></p>
+  </main>
+</div>
+<script src="/common.js"></script>
+<script>
+const CODE = codeFromPath();
+let D, qty = {};
+const fact = (icon, title, sub) => el("div", { class: "fact" }, el("span", { class: "ic", "aria-hidden": "true" }, icon), el("div", {}, el("b", {}, title), sub ? el("span", { class: "muted small" }, sub) : ""));
+
+async function boot() {
+  let cfg;
+  try { [D, cfg] = await Promise.all([api(`/events/${CODE}/page`), api("/config")]); }
+  catch (x) { $("#loading").textContent = x.message; return; }
+  const e = D.event; document.title = e.name + " · " + BRAND.name;
+  $("#demo").hidden = cfg.mode !== "demo";
+  $("#loading").hidden = true; $("#page").hidden = false;
+  if (e.flyer) { $("#flyer").src = e.flyer; $("#flyer").alt = e.name + " flyer"; $("#flyer").hidden = false; }
+  $("#name").textContent = e.name;
+  if (e.ageMin) $("#tags").append(el("span", { class: "tag age" }, e.ageMin + "+"));
+  $("#facts").append(fact("📅", when(e.startsAt), ""));
+  $("#facts").append(e.venueHidden
+    ? fact("📍", e.city ? `${e.city}: venue revealed on your ticket` : "Venue revealed on your ticket", "")
+    : fact("📍", e.venue || e.city || "Venue to be announced", [e.address, e.venue && e.city].filter(Boolean).join(" · ")));
+  if (e.about) { $("#about").textContent = e.about; $("#about").hidden = false; }
+  if (e.includes.length) { $("#incTitle").textContent = `Your ${e.priceLabel.toLowerCase()} covers`; $("#inc").append(...e.includes.map((x) => el("span", { class: "tag" }, x))); $("#incCard").hidden = false; }
+  if (D.lineup.length) { $("#lineup").append(...D.lineup.map((r) => el("span", { class: "tag" }, r.role ? `${r.role}: ${r.name}` : r.name))); $("#lineupCard").hidden = false; }
+  if (e.contact) $("#contact").textContent = "Enquiries & sponsorship: " + e.contact;
+
+  if (e.status === "ended") return closed("This event has ended.");
+  if (e.ticketing === "none") return closed("No tickets needed. Just come and spray!");
+  $("#buy").hidden = false; $("#ageRow").hidden = !e.ageMin;
+  $("#buyTitle").textContent = e.ticketing === "free" ? "RSVP" : e.ticketing === "single" ? e.priceLabel : "Tickets";
+  if (e.ticketing === "free") $("#sumCard").hidden = true;
+  const saved = store.get("buyer") || {}; $("#bname").value = saved.name || ""; $("#bphone").value = saved.phone || ""; $("#bemail").value = saved.email || "";
+  renderTypes();
+}
+function closed(msg) { $("#closedMsg").textContent = msg; $("#closed").hidden = false; }
+function renderTypes() {
+  $("#types").replaceChildren(...D.tickets.map((t) => {
+    const n = qty[t.id] || 0, out = t.left === 0, max = Math.min(t.left ?? 20, 20);
+    return el("div", { class: "tt" },
+      el("div", {}, el("span", {}, t.name + (t.admits > 1 ? ` (admits ${t.admits})` : "")),
+        el("div", { class: "p" }, t.price ? naira(t.price) : "Free", t.earlyUntil ? el("s", {}, naira(t.fullPrice)) : ""),
+        t.earlyUntil ? el("small", { class: "early" }, "Early bird until " + when(t.earlyUntil, { weekday: undefined })) : "",
+        t.left != null && t.left > 0 && t.left <= 20 ? el("small", {}, `Only ${t.left} left`) : ""),
+      out ? el("span", { class: "soldout" }, "Sold out") :
+      el("div", { class: "step" },
+        el("button", { type: "button", "aria-label": "One fewer " + t.name, onclick: () => { qty[t.id] = Math.max(0, n - 1); renderTypes(); } }, "−"),
+        el("b", { "aria-live": "polite" }, n),
+        el("button", { type: "button", "aria-label": "One more " + t.name, disabled: n >= max, onclick: () => { qty[t.id] = n + 1; renderTypes(); } }, "+")));
+  }));
+  const items = D.tickets.filter((t) => qty[t.id]);
+  const sub = items.reduce((a, t) => a + t.price * qty[t.id], 0), paid = items.reduce((a, t) => a + (t.price > 0 ? qty[t.id] : 0), 0);
+  const fee = sub > 0 ? Math.ceil(sub * D.fee.rate) + paid * D.fee.flat : 0;
+  $("#sSub").textContent = naira(sub); $("#sFee").textContent = naira(fee); $("#sTot").textContent = naira(sub + fee);
+  const count = items.reduce((a, t) => a + qty[t.id], 0);
+  $("#go").disabled = !count;
+  $("#go").textContent = !count ? (D.event.ticketing === "free" ? "Choose how many" : "Choose your tickets") : D.event.ticketing === "free" ? `RSVP for ${count}` : `Pay ${naira(sub + fee)}` + ($("#demo").hidden ? "" : " (demo)");
+}
+$("#go").onclick = async () => {
+  $("#err").textContent = ""; const btn = $("#go"); btn.disabled = true;
+  try {
+    const buyer = { name: $("#bname").value, phone: $("#bphone").value, email: $("#bemail").value };
+    const r = await api(`/events/${CODE}/orders`, { method: "POST", body: { ...buyer, ageOk: $("#ageOk").checked, items: Object.entries(qty).map(([typeId, q]) => ({ typeId, qty: q })) } });
+    store.set("buyer", buyer);
+    const mine = store.get("myTickets") || []; mine.unshift({ order: r.order, event: D.event.name, at: D.event.startsAt }); store.set("myTickets", mine.slice(0, 30));
+    location.href = "/t/" + r.order;
+  } catch (x) {
+    $("#err").textContent = x.message; btn.disabled = false;
+    try { D = await api(`/events/${CODE}/page`); renderTypes(); } catch {}   // refresh what's left
+  }
+};
+boot();
+</script>
+</body></html>

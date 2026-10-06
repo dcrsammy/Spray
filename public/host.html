@@ -1,55 +1,141 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Set up a party · Spray</title><meta name="theme-color" content="#0b0a12">
+<title>Create an event · Spray</title><meta name="theme-color" content="#0b0a12">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
-<style>.rec{display:grid;grid-template-columns:1fr 9rem 2.6rem;gap:8px;margin-bottom:8px}.rec .x{width:2.6rem;padding:0}.done .qr{width:200px}</style>
+<style>
+  fieldset{border:1px solid var(--line);border-radius:18px;padding:16px;margin:0 0 14px;background:var(--night-2)}
+  legend{font:800 1.05rem var(--display);padding:0 6px}
+  .rec,.ttype{display:grid;gap:8px;margin-bottom:10px}
+  .rec{grid-template-columns:1fr 8.5rem 2.6rem}
+  .ttype{grid-template-columns:1fr 1fr;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--night)}
+  .ttype .full{grid-column:1/-1}.ttype .x,.rec .x{width:2.6rem;padding:0;min-height:44px}
+  .ttype label{font-size:.78rem;color:var(--mute);margin-bottom:.2rem}
+  .flyer{display:grid;place-items:center;border:1px dashed var(--line);border-radius:14px;min-height:120px;cursor:pointer;overflow:hidden;color:var(--mute);text-align:center;padding:10px}
+  .flyer img{max-width:100%;max-height:340px;border-radius:10px}
+  .mode[hidden]{display:none}
+  .hint{color:var(--mute);font-size:.82rem;margin-top:5px}
+  .inc{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.inc span{background:var(--night-3);border:1px solid var(--line);border-radius:999px;padding:.3rem .7rem;font-size:.85rem;cursor:pointer}
+  .done .qr{width:200px}
+</style>
 </head><body>
 <div class="wrap">
   <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a></header>
 
-  <form id="setup">
-    <h2>Set up your party</h2>
-    <p class="muted" style="margin-bottom:16px">Takes a minute. You'll get a code for guests and a link for the big screen.</p>
-    <div class="field"><label for="name">Name of the party</label><input id="name" required maxlength="60" placeholder="Tunde & Bisi's Wedding"></div>
-    <div class="field"><label>What kind?</label>
-      <div class="chips" id="kind">
-        <button type="button" class="chip" data-v="wedding" aria-pressed="true">Wedding</button>
-        <button type="button" class="chip" data-v="birthday" aria-pressed="false">Birthday</button>
-        <button type="button" class="chip" data-v="club" aria-pressed="false">Club night</button>
-        <button type="button" class="chip" data-v="other" aria-pressed="false">Other</button>
+  <form id="setup" novalidate>
+    <h2>Create your event</h2>
+    <p class="muted" style="margin-bottom:16px">Sell tickets, check people in at the door, and let guests spray on the night, all from one link.</p>
+
+    <fieldset><legend>The basics</legend>
+      <div class="field"><label for="name">Event name</label><input id="name" maxlength="60" placeholder="All Shades of Royalty"></div>
+      <div class="field"><label>What kind?</label>
+        <div class="chips" id="kind">
+          <button type="button" class="chip" data-v="club" aria-pressed="true">Party / club night</button>
+          <button type="button" class="chip" data-v="wedding" aria-pressed="false">Wedding</button>
+          <button type="button" class="chip" data-v="birthday" aria-pressed="false">Birthday</button>
+          <button type="button" class="chip" data-v="other" aria-pressed="false">Other</button>
+        </div></div>
+      <div class="row"><div class="field"><label for="date">Date</label><input id="date" type="date"></div><div class="field"><label for="time">Starts</label><input id="time" type="time" value="20:00"></div></div>
+      <div class="field"><label>Flyer</label>
+        <label class="flyer" id="flyerBox" for="flyerFile"><span>Tap to add your flyer</span></label>
+        <input type="file" id="flyerFile" accept="image/*" hidden></div>
+      <div class="field"><label for="about">About the event (optional)</label><textarea id="about" maxlength="1000" rows="3" placeholder="Walk in like a King and Queen…" style="width:100%;padding:.6rem .8rem;border-radius:12px;border:1px solid var(--line);background:var(--night);color:var(--text);font:500 1rem var(--body)"></textarea></div>
+    </fieldset>
+
+    <fieldset><legend>Where</legend>
+      <div class="field"><label for="venue">Venue</label><input id="venue" maxlength="80" placeholder="Delight Hotel & Suites Car Park"></div>
+      <div class="field"><label for="address">Address or directions (optional)</label><input id="address" maxlength="160" placeholder="Ilawe Road, Ado-Ekiti"></div>
+      <div class="field"><label for="city">City</label><input id="city" maxlength="40" placeholder="Ado-Ekiti"></div>
+      <label class="check"><input type="checkbox" id="hidden"> Keep the venue secret until people get a ticket</label>
+      <p class="hint">The event page shows only the city; the venue appears on each guest's ticket.</p>
+    </fieldset>
+
+    <fieldset><legend>Tickets</legend>
+      <div class="chips" id="mode" style="margin-bottom:12px">
+        <button type="button" class="chip" data-v="types" aria-pressed="true">Ticket types</button>
+        <button type="button" class="chip" data-v="single" aria-pressed="false">One price for all</button>
+        <button type="button" class="chip" data-v="free" aria-pressed="false">Free RSVP</button>
+        <button type="button" class="chip" data-v="none" aria-pressed="false">No tickets (spraying only)</button>
       </div>
-    </div>
-    <div class="field"><label>Who can guests spray?</label>
+      <div class="mode" data-mode="types">
+        <div id="types"></div>
+        <button type="button" class="btn ghost" id="addType">+ Add a ticket type</button>
+        <p class="hint">"Admits" is for tables or group tickets: a Table for 6 admits 6 people on one QR code.</p>
+      </div>
+      <div class="mode" data-mode="single" hidden>
+        <div class="field"><label for="label">Call it</label><select id="label"><option>Ticket</option><option>Contribution</option><option>Entry</option><option>Gate fee</option></select></div>
+        <div class="row"><div class="field"><label for="price">Price (₦)</label><input id="price" inputmode="numeric" placeholder="50000"></div><div class="field"><label for="cap">How many (optional)</label><input id="cap" inputmode="numeric" placeholder="No limit"></div></div>
+        <div class="row"><div class="field"><label for="eprice">Early-bird price (optional)</label><input id="eprice" inputmode="numeric" placeholder="₦"></div><div class="field"><label for="euntil">Early bird ends</label><input id="euntil" type="datetime-local"></div></div>
+      </div>
+      <div class="mode" data-mode="free" hidden>
+        <div class="field"><label for="fcap">How many guests (optional)</label><input id="fcap" inputmode="numeric" placeholder="No limit"></div>
+      </div>
+      <div class="mode" data-mode="none" hidden><p class="muted small">No ticket page: guests just scan the party code to spray.</p></div>
+      <label class="check" style="margin-top:12px"><input type="checkbox" id="age"> Guests must be 18+</label>
+    </fieldset>
+
+    <fieldset><legend>What's included (optional)</legend>
+      <div class="row"><input id="incIn" maxlength="40" placeholder="e.g. Food & finger chops"><button type="button" class="btn" id="incAdd" style="flex:0 0 auto;width:auto">Add</button></div>
+      <div class="inc" id="inc"></div>
+      <p class="hint">Quick add:</p>
+      <div class="inc" id="incQuick"></div>
+    </fieldset>
+
+    <fieldset><legend>Lineup: who guests can spray</legend>
       <div id="recs"></div>
       <button type="button" class="btn ghost" id="addRec">+ Add someone</button>
-      <p class="muted small" style="margin-top:6px">Celebrants, the DJ, the band, the MC, the dancers. Guests can also spray anyone in the room who shows a personal spray code.</p>
-    </div>
-    <div class="field"><label for="partner">DJ, MC or planner who brought you here (optional)</label><input id="partner" maxlength="40" placeholder="e.g. DJ Kaywise"><p class="muted small" style="margin-top:6px">They earn a share of the fees from this party.</p></div>
+      <p class="hint">Hosts, DJs, hype men, artists, celebrants. They're shown on the event page and can be sprayed on the night.</p>
+    </fieldset>
+
+    <fieldset><legend>Extras</legend>
+      <div class="field"><label for="contact">Contact / sponsorship number (optional)</label><input id="contact" inputmode="tel" maxlength="40" placeholder="0813 186 8737"></div>
+      <div class="field"><label for="partner">DJ, MC or planner who brought you to Spray (optional)</label><input id="partner" maxlength="40"><p class="hint">They earn a share of the spray fees.</p></div>
+      <label class="check"><input type="checkbox" id="listed" checked> Show this event on Spray's homepage</label>
+    </fieldset>
+
     <div class="err" id="err" role="alert"></div>
-    <button class="btn gold">Create party</button>
+    <button class="btn gold" id="go">Create event</button>
   </form>
 
   <section class="done" id="done" hidden>
-    <h2>You're set 🎉</h2>
-    <p class="muted" style="margin-bottom:16px">Keep this page safe: it's your host access on this phone.</p>
-    <div class="card" style="text-align:center">
-      <p class="muted small">Guests scan this, or type the code</p>
+    <h2>Your event is live 🎉</h2>
+    <p class="muted" style="margin-bottom:16px">Share the event link on Instagram, WhatsApp and your flyer. Keep this phone: it's your organiser access.</p>
+    <div class="card" style="text-align:center" id="evCard">
+      <p class="muted small">Event page</p>
       <div class="qr" id="qr" style="margin:12px auto"></div>
-      <div class="big" id="pcode"></div>
+      <p style="word-break:break-all;font-weight:700" id="evUrl"></p>
+      <button class="btn" id="copy" style="margin-top:10px">Copy link</button>
     </div>
     <div class="stack">
-      <a class="btn gold" id="screenLink" target="_blank" rel="noopener">Open the big screen</a>
-      <a class="btn" id="dashLink">Host dashboard</a>
-      <a class="btn ghost" id="guestLink" target="_blank" rel="noopener">Try it as a guest</a>
+      <a class="btn gold" id="evLink" target="_blank" rel="noopener">View event page</a>
+      <a class="btn" id="dashLink">Organiser dashboard (sales, door, spraying)</a>
+      <a class="btn ghost" id="screenLink" target="_blank" rel="noopener">Big screen for the night</a>
     </div>
-    <p class="muted small" style="margin-top:14px">Open the big screen on the laptop connected to the projector or LED wall, then press F11 for full screen.</p>
   </section>
 </div>
 <script src="/common.js"></script><script src="/qrcode.js"></script>
 <script>
+const pick = (box, v) => $$(".chip", box).forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.v === v)));
+$$("#kind .chip").forEach((c) => c.onclick = () => pick($("#kind"), c.dataset.v));
+$$("#mode .chip").forEach((c) => c.onclick = () => { pick($("#mode"), c.dataset.v); $$(".mode").forEach((m) => (m.hidden = m.dataset.mode !== c.dataset.v)); });
+const field = (lab, attrs, cls = "") => el("div", { class: cls }, el("label", {}, lab), el("input", attrs));
+
+function addType(t = {}) {
+  const box = el("div", { class: "ttype" },
+    field("Name", { "data-k": "name", maxlength: 30, value: t.name || "", placeholder: "Regular" }, "full"),
+    field("Price (₦)", { "data-k": "price", inputmode: "numeric", value: t.price || "" }),
+    field("How many (optional)", { "data-k": "quantity", inputmode: "numeric", placeholder: "No limit", value: t.quantity || "" }),
+    field("Admits", { "data-k": "admits", inputmode: "numeric", value: t.admits || 1 }),
+    field("Early-bird price", { "data-k": "earlyPrice", inputmode: "numeric", placeholder: "Optional" }),
+    field("Early bird ends", { "data-k": "earlyUntil", type: "datetime-local" }, "full"),
+    el("button", { type: "button", class: "btn ghost full", onclick: () => box.remove() }, "Remove this ticket type"));
+  $("#types").append(box);
+}
+addType({ name: "Regular" }); addType({ name: "VIP" }); addType({ name: "Table for 6", admits: 6 });
+$("#addType").onclick = () => addType();
+
 const recs = $("#recs");
 function addRec(name = "", role = "") {
   const r = el("div", { class: "rec" },
@@ -58,24 +144,48 @@ function addRec(name = "", role = "") {
     el("button", { type: "button", class: "btn x", "aria-label": "Remove", onclick: () => r.remove() }, "×"));
   recs.append(r);
 }
-document.body.append(el("datalist", { id: "roles" }, ...["Bride", "Groom", "Celebrant", "DJ", "MC", "Band", "Artist", "Hype man", "Dancers"].map((v) => el("option", { value: v }))));
-addRec("", "Celebrant"); addRec("", "DJ");
+document.body.append(el("datalist", { id: "roles" }, ...["Host", "DJ", "Hype man", "MC", "Artist", "Celebrant", "Band", "Dancers"].map((v) => el("option", { value: v }))));
+addRec("", "Host"); addRec("", "DJ");
 $("#addRec").onclick = () => addRec();
-$$("#kind .chip").forEach((c) => c.onclick = () => $$("#kind .chip").forEach((x) => x.setAttribute("aria-pressed", String(x === c))));
 
+const includes = [];
+function renderInc() { $("#inc").replaceChildren(...includes.map((x, i) => el("span", { title: "Remove", onclick: () => { includes.splice(i, 1); renderInc(); } }, x + " ×"))); }
+function addInc(v) { v = v.trim(); if (v && !includes.includes(v) && includes.length < 10) { includes.push(v); renderInc(); } }
+$("#incAdd").onclick = () => { addInc($("#incIn").value); $("#incIn").value = ""; };
+$("#incQuick").append(...["Food & finger chops", "Drinks", "Entertainment", "Location & setup", "Free parking", "Photographer"].map((x) => el("span", { onclick: () => addInc(x) }, "+ " + x)));
+
+let flyer = null;
+$("#flyerFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try { flyer = await shrinkImage(f); $("#flyerBox").replaceChildren(el("img", { src: flyer, alt: "Your flyer" })); }
+  catch (x) { $("#err").textContent = x.message; }
+});
+
+const num = (v) => (String(v).trim() === "" ? "" : Number(String(v).replace(/[^\d]/g, "")));
 $("#setup").addEventListener("submit", async (e) => {
   e.preventDefault(); $("#err").textContent = "";
-  const btn = e.submitter; btn.disabled = true;
+  const btn = $("#go"); btn.disabled = true; btn.textContent = "Creating…";
   try {
-    const recipients = $$(".rec", recs).map((r) => ({ name: $$("input", r)[0].value, role: $$("input", r)[1].value }));
-    const kind = $("#kind [aria-pressed=true]").dataset.v;
-    const r = await api("/events", { method: "POST", body: { name: $("#name").value, kind, recipients, partner: $("#partner").value } });
+    const mode = $("#mode [aria-pressed=true]").dataset.v;
+    const startsAt = $("#date").value ? `${$("#date").value}T${$("#time").value || "20:00"}` : "";
+    const tickets = $$(".ttype").map((b) => { const g = (k) => $(`[data-k=${k}]`, b).value; return { name: g("name"), price: num(g("price")), quantity: num(g("quantity")), admits: num(g("admits")) || 1, earlyPrice: num(g("earlyPrice")), earlyUntil: g("earlyUntil") }; });
+    const body = {
+      name: $("#name").value, kind: $("#kind [aria-pressed=true]").dataset.v, startsAt, flyer, about: $("#about").value,
+      venue: $("#venue").value, address: $("#address").value, city: $("#city").value, venueHidden: $("#hidden").checked,
+      ticketing: mode, tickets, priceLabel: $("#label").value, price: num($("#price").value), capacity: mode === "free" ? num($("#fcap").value) : num($("#cap").value),
+      earlyPrice: num($("#eprice").value), earlyUntil: $("#euntil").value, ageMin: $("#age").checked ? 18 : 0,
+      includes, contact: $("#contact").value, partner: $("#partner").value, listed: $("#listed").checked,
+      recipients: $$(".rec", recs).map((r) => ({ name: $$("input", r)[0].value, role: $$("input", r)[1].value })),
+    };
+    if (mode !== "none" && !startsAt) throw new Error("Add the date of the event.");
+    const r = await api("/events", { method: "POST", body });
     const hosts = store.get("hostKeys") || {}; hosts[r.code] = r.hostKey; store.set("hostKeys", hosts);
-    const guest = location.origin + "/e/" + r.code;
-    qr($("#qr"), guest); $("#pcode").textContent = r.code;
-    $("#screenLink").href = "/s/" + r.code; $("#dashLink").href = "/d/" + r.code; $("#guestLink").href = guest;
+    const url = location.origin + (mode === "none" ? "/e/" : "/ev/") + r.code;
+    qr($("#qr"), url); $("#evUrl").textContent = url.replace(/^https?:\/\//, "");
+    $("#evLink").href = url; $("#dashLink").href = "/d/" + r.code; $("#screenLink").href = "/s/" + r.code;
+    $("#copy").onclick = () => navigator.clipboard.writeText(url).then(() => toast("Link copied"));
     $("#setup").hidden = true; $("#done").hidden = false; scrollTo(0, 0);
-  } catch (x) { $("#err").textContent = x.message; } finally { btn.disabled = false; }
+  } catch (x) { $("#err").textContent = x.message; } finally { btn.disabled = false; btn.textContent = "Create event"; }
 });
 </script>
 </body></html>

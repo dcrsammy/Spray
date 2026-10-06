@@ -14,6 +14,10 @@
   .how li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;color:var(--mute)}
   .how li::before{content:counter(s);flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--night-3);border:1px solid var(--line);color:var(--gold);font-weight:800}
   .how b{color:var(--text)}
+  .evs{display:grid;gap:12px;margin:10px 0 22px}
+  .ev{display:flex;gap:12px;align-items:center;background:var(--night-2);border:1px solid var(--line);border-radius:16px;padding:10px;color:inherit;text-decoration:none}
+  .ev img,.ev .ph{flex:none;width:72px;height:72px;border-radius:12px;object-fit:cover;background:var(--night-3);display:grid;place-items:center;font-size:1.6rem}
+  .ev b{display:block;line-height:1.25}.ev .p{color:var(--gold);font-weight:700;font-size:.9rem}
   .join{display:flex;gap:8px}.join input{text-transform:uppercase;letter-spacing:.15em;font-weight:700}.join .btn{width:auto}
 </style>
 </head><body>
@@ -32,8 +36,10 @@
     <h3>At a party already?</h3>
     <form class="join" id="join"><input id="code" maxlength="6" placeholder="Party code" aria-label="Party code" autocomplete="off"><button class="btn gold">Spray</button></form>
   </div>
+  <section id="mineWrap" hidden><h2 style="margin-top:6px">Your tickets</h2><div class="evs" id="mine"></div></section>
+  <section id="upWrap" hidden><h2 style="margin-top:6px">Coming up</h2><div class="evs" id="up"></div></section>
   <div class="stack">
-    <a class="btn gold" href="/host.html">Set up a party or club night</a>
+    <a class="btn gold" href="/host.html">Set up an event: tickets and spraying</a>
     <a class="btn" href="/p">Get your own spray code</a>
   </div>
   <p class="muted small" style="margin-top:22px">Spraying naira notes is against the law in Nigeria. This keeps the tradition alive, legally, and gives celebrants a record of everyone who showed love.</p>
@@ -41,5 +47,18 @@
 <script src="/common.js"></script>
 <script>
 $("#join").addEventListener("submit", (e) => { e.preventDefault(); const c = $("#code").value.trim().toUpperCase(); if (c) location.href = "/e/" + c; });
+const mine = (store.get("myTickets") || []).filter((t) => !t.at || Date.parse(t.at) > Date.now() - 864e5);
+if (mine.length) {
+  $("#mine").append(...mine.slice(0, 5).map((t) => el("a", { class: "ev", href: "/t/" + t.order }, el("span", { class: "ph" }, "🎟️"), el("div", {}, el("b", {}, t.event), el("span", { class: "muted small" }, when(t.at))))));
+  $("#mineWrap").hidden = false;
+}
+api("/listing").then(({ events }) => {
+  if (!events.length) return;
+  $("#up").append(...events.map((e) => el("a", { class: "ev", href: "/ev/" + e.code },
+    e.flyer ? el("img", { src: e.flyer, alt: "", loading: "lazy" }) : el("span", { class: "ph" }, "🎉"),
+    el("div", {}, el("b", {}, e.name), el("span", { class: "muted small" }, [when(e.startsAt), e.city].filter(Boolean).join(" · ")), el("br"),
+      el("span", { class: "p" }, e.ticketing === "free" ? "Free RSVP" : e.ticketing === "none" ? "Free entry" : e.from != null ? "From " + naira(e.from) : "")))));
+  $("#upWrap").hidden = false;
+}).catch(() => {});
 </script>
 </body></html>

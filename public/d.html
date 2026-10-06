@@ -13,6 +13,30 @@
   <div id="dash" hidden>
     <h2 id="name"></h2>
     <p style="margin-bottom:16px">Status: <span class="status" id="status"></span></p>
+    <section id="tix" hidden>
+      <div class="grid2">
+        <div class="card"><p class="muted small">Tickets sold</p><div class="big" id="tSold">0</div><p class="muted small" id="tRev"></p></div>
+        <div class="card"><p class="muted small">Inside now</p><div class="big" id="tIn">0</div><p class="muted small" id="tExp"></p></div>
+      </div>
+      <div class="card"><h3>Ticket types</h3><div class="scroll"><table><thead><tr><th>Type</th><th class="num">Price now</th><th class="num">Sold</th><th class="num">Left</th></tr></thead><tbody id="tTypes"></tbody></table></div></div>
+      <div class="card">
+        <h3>Your event page</h3>
+        <p class="muted small" style="margin-bottom:10px">Share this link on WhatsApp, Instagram and your flyer. People buy tickets here.</p>
+        <div class="row"><a class="btn gold" id="evLink" target="_blank" rel="noopener">Open event page</a><button class="btn" id="copyEv">Copy link</button></div>
+        <label class="check" style="margin-top:12px"><input type="checkbox" id="listed"> Show this event on the <span data-brand>Spray</span> homepage</label>
+      </div>
+      <div class="card">
+        <h3>Door</h3>
+        <p class="muted small" style="margin-bottom:10px">Send the door link to whoever is checking tickets. They scan QR codes with their phone camera. Making a new link switches the old one off.</p>
+        <div class="row"><button class="btn" id="doorLink">Get a door link</button><a class="btn ghost" id="doorMe" target="_blank" rel="noopener">Scan from this phone</a></div>
+        <p class="small" id="doorOut" style="word-break:break-all;margin-top:10px"></p>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px"><h3 style="margin:0">Guest list</h3><button class="btn" id="aCsv" style="width:auto;min-height:40px">Download</button></div>
+        <input id="aFind" placeholder="Search name, phone or ticket code" style="margin-bottom:8px">
+        <div class="scroll"><table><thead><tr><th>Name</th><th>Phone</th><th>Ticket</th><th>Door</th></tr></thead><tbody id="aList"></tbody></table></div>
+      </div>
+    </section>
     <div class="grid2">
       <div class="card"><p class="muted small">Sprayed so far</p><div class="big" id="total">₦0</div><p class="muted small" id="stacks"></p></div>
       <div class="card" id="partnerCard" hidden><p class="muted small">Earned by <span id="partner"></span></p><div class="big" id="pEarn">₦0</div><p class="muted small">Their share of the service fees</p></div>
@@ -51,6 +75,7 @@ async function load() {
     $("#status").textContent = d.event.status === "closing" ? "winding down" : d.event.status; $("#status").className = "status " + d.event.status;
     $("#total").textContent = naira(d.total); $("#stacks").textContent = `${d.ledger.length} stack${d.ledger.length === 1 ? "" : "s"} bought`;
     $("#partnerCard").hidden = !d.event.partner; $("#partner").textContent = d.event.partner || ""; $("#pEarn").textContent = naira(d.partnerEarnings);
+    renderTix(d);
     $("#wind").disabled = d.event.status !== "open"; $("#end").disabled = d.event.status === "ended";
     $("#byRec").replaceChildren(...d.byRecipient.map((r) => el("tr", {}, el("td", {}, r.name), el("td", { class: "muted" }, r.role || ""), el("td", { class: "num" }, r.stacks), el("td", { class: "num" }, naira(r.total)))));
     $("#ledger").replaceChildren(...(d.ledger.length ? d.ledger.map((x) => el("tr", {},
@@ -59,6 +84,45 @@ async function load() {
       : [el("tr", {}, el("td", { colspan: 4, class: "muted" }, "No sprays yet."))]));
   } catch (x) { $("#msg").hidden = false; $("#msg").textContent = /host/.test(x.message) ? "This dashboard only opens on the phone that created the party." : x.message; }
 }
+
+let people = [];
+function renderTix(d) {
+  const t = d.tickets; if (!t || t.ticketing === "none") return;
+  $("#tix").hidden = false;
+  $("#tSold").textContent = t.tickets; $("#tRev").textContent = t.revenue ? `${naira(t.revenue)} from ${t.orders} order${t.orders === 1 ? "" : "s"}` : `${t.orders} RSVP${t.orders === 1 ? "" : "s"}`;
+  $("#tIn").textContent = t.inside; $("#tExp").textContent = `of ${t.people} expected`;
+  $("#tTypes").replaceChildren(...t.types.map((x) => el("tr", {}, el("td", {}, x.name + (x.admits > 1 ? ` (admits ${x.admits})` : "")), el("td", { class: "num" }, x.price ? naira(x.price) : "Free"), el("td", { class: "num" }, x.sold), el("td", { class: "num" }, x.quantity == null ? "∞" : x.quantity - x.sold))));
+  if (document.activeElement !== $("#listed")) $("#listed").checked = d.event.listed;
+}
+async function loadPeople() {
+  try { people = (await api(`/events/${CODE}/attendees`, { headers: H })).attendees; drawPeople(); } catch {}
+}
+function drawPeople() {
+  const q = $("#aFind").value.trim().toLowerCase();
+  const rows = people.filter((p) => !q || [p.name, p.phone, p.code, p.email].join(" ").toLowerCase().includes(q));
+  $("#aList").replaceChildren(...(rows.length ? rows.slice(0, 300).map((p) => el("tr", {}, el("td", {}, p.name), el("td", {}, el("a", { href: "tel:" + p.phone }, p.phone)),
+    el("td", {}, p.type, el("br"), el("span", { class: "muted small" }, p.code)), el("td", { class: p.checked_in ? "" : "muted" }, p.checked_in ? "✓ in" : "not yet")))
+    : [el("tr", {}, el("td", { colspan: 4, class: "muted" }, people.length ? "No match." : "No tickets yet."))]));
+}
+$("#aFind").oninput = drawPeople;
+$("#aCsv").onclick = () => {
+  const rows = [["Name", "Phone", "Email", "Ticket type", "Ticket code", "Admits", "Price (NGN)", "Order", "Bought", "Checked in"], ...people.map((p) => [p.name, p.phone, p.email || "", p.type, p.code, p.admits, p.price, p.order_code, p.created, p.checked_in || ""])];
+  const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: `${CODE}-guest-list.csv` }).click();
+};
+$("#evLink").href = "/ev/" + CODE;
+$("#copyEv").onclick = async () => { try { await navigator.clipboard.writeText(location.origin + "/ev/" + CODE); toast("Link copied"); } catch { prompt("Copy this link", location.origin + "/ev/" + CODE); } };
+$("#listed").onchange = async (e) => { try { await api(`/events/${CODE}/listed`, { method: "POST", headers: H, body: { listed: e.target.checked } }); toast(e.target.checked ? "Showing on the homepage" : "Hidden from the homepage"); } catch (x) { toast(x.message); } };
+$("#doorMe").href = "/door/" + CODE;
+$("#doorLink").onclick = async () => {
+  if (!confirm("Make a new door link? Any older door link stops working.")) return;
+  try {
+    const r = await api(`/events/${CODE}/door-link`, { method: "POST", headers: H });
+    const link = `${location.origin}/door/${CODE}#d=${r.doorKey}`;
+    $("#doorOut").replaceChildren("Door link: ", el("a", { href: link, target: "_blank", rel: "noopener" }, link));
+    try { await navigator.clipboard.writeText(link); toast("Door link copied. Send it to your door team."); } catch {}
+  } catch (x) { toast(x.message); }
+};
 async function setStatus(status) {
   $("#err").textContent = "";
   try { const r = await api(`/events/${CODE}/status`, { method: "POST", headers: H, body: { status } }); toast(status === "ended" ? `Party ended. ${r.finaleStacks} stack${r.finaleStacks === 1 ? "" : "s"} went out in the finale.` : "Guests are being reminded."); load(); }
@@ -72,6 +136,6 @@ $("#csv").onclick = () => {
   const a = el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: `${CODE}-who-sprayed.csv` }); a.click();
 };
 qr($("#qr"), location.origin + "/e/" + CODE); $("#gcode").textContent = CODE; $("#screen").href = "/s/" + CODE;
-if (!KEY) { $("#msg").textContent = "This dashboard only opens on the phone that created the party."; } else { load(); setInterval(load, 5000); }
+if (!KEY) { $("#msg").textContent = "This dashboard only opens on the phone that created the party."; } else { load(); loadPeople(); setInterval(load, 5000); setInterval(loadPeople, 20000); }
 </script>
 </body></html>

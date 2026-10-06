@@ -44,3 +44,23 @@ const store = {
 
 const codeFromPath = () => (location.pathname.split("/")[2] || "").toUpperCase();
 document.addEventListener("DOMContentLoaded", () => $$("[data-brand]").forEach((n) => (n.textContent = BRAND.name)));
+
+/** "Sat 31 Oct, 10:00 pm" in Nigerian time. */
+function when(iso, opts = {}) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("en-NG", { timeZone: "Africa/Lagos", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true, ...opts });
+}
+/** Shrinks a photo to a JPEG (longest side 1200px) so flyers upload quickly on mobile data. */
+function shrinkImage(file, max = 1200) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      resolve(c.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = () => reject(new Error("That file isn't an image we can read."));
+    img.src = url;
+  });
+}

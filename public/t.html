@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Your ticket · Spray</title><meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .ticket{background:#fff;color:#111;border-radius:20px;padding:20px;text-align:center;margin-bottom:14px;position:relative}
+  .ticket .qr{width:min(240px,70vw);padding:0}.ticket h3{color:#111;font-size:1.15rem;margin:10px 0 2px}
+  .ticket .code{font:700 .95rem ui-monospace,Menlo,monospace;letter-spacing:.08em;color:#444}
+  .ticket.used{opacity:.55}.ticket .stamp{position:absolute;top:18px;right:18px;background:#111;color:#fff;font-weight:800;font-size:.75rem;padding:.25rem .6rem;border-radius:999px}
+  .venue{border-left:3px solid var(--gold);padding-left:12px}
+</style>
+</head><body>
+<div class="wrap">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a></header>
+  <p class="muted" id="loading">Loading your ticket…</p>
+  <main id="page" hidden>
+    <p class="muted small">You're going to</p>
+    <h1 id="name" style="font-size:clamp(1.7rem,7vw,2.4rem);margin-bottom:10px"></h1>
+    <div class="card">
+      <p><b id="date"></b></p>
+      <div class="venue" style="margin-top:10px"><b id="venue"></b><p class="muted small" id="addr"></p><p class="small" id="secret" hidden style="color:var(--gold);margin-top:4px">🔒 Secret venue: please don't share it publicly.</p></div>
+      <p class="muted small" style="margin-top:10px" id="who"></p>
+    </div>
+    <p class="muted small" style="margin:4px 0 12px">Show the QR code at the door. Each one can be scanned once. Screenshot this page in case the network is bad.</p>
+    <div id="tickets"></div>
+    <a class="btn gold" id="spray">Spray on the night 💸</a>
+    <p class="muted small" style="margin-top:14px" id="paid"></p>
+  </main>
+</div>
+<script src="/common.js"></script><script src="/qrcode.js"></script>
+<script>
+(async () => {
+  let d;
+  try { d = await api("/orders/" + codeFromPath()); } catch (x) { $("#loading").textContent = x.message; return; }
+  const e = d.event; document.title = e.name + " · your ticket";
+  $("#loading").hidden = true; $("#page").hidden = false;
+  $("#name").textContent = e.name; $("#date").textContent = when(e.startsAt);
+  $("#venue").textContent = e.venue || e.city || "Venue to be announced";
+  $("#addr").textContent = [e.address, e.city].filter(Boolean).join(" · ");
+  $("#secret").hidden = !e.venueHidden;
+  $("#who").textContent = `${d.tickets.length} ticket${d.tickets.length === 1 ? "" : "s"} for ${d.order.name}`;
+  for (const t of d.tickets) {
+    const box = el("div", { class: "ticket" + (t.checked_in ? " used" : "") },
+      t.checked_in ? el("span", { class: "stamp" }, "USED") : "",
+      el("div", { class: "qr" }), el("h3", {}, t.type + (t.admits > 1 ? ` · admits ${t.admits}` : "")), el("div", { class: "code" }, t.code));
+    qr($(".qr", box), t.code); $("#tickets").append(box);
+  }
+  $("#spray").href = "/e/" + e.code;
+  $("#paid").textContent = d.order.subtotal ? `Paid ${naira(d.order.subtotal + d.order.fee)} (including ${naira(d.order.fee)} service fee).` : "Free RSVP.";
+})();
+</script>
+</body></html>

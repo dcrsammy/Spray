@@ -1,3 +1,6 @@
+import { now, code, secret, sha, clean, HttpError, fail, json, db, eventByCode, hostOnly } from "./lib.js";
+import { eventsApi, EVENT_SCHEMA, EVENT_MIGRATIONS, createEventDetails, ticketStats, serveImage } from "./events.js";
+
 /**
  * Spray (working name): digital money spraying for parties and clubs.
  * Cloudflare Worker + D1. Serves the web pages and the API.
@@ -27,33 +30,8 @@ const PARTNER_SHARE = 0.25;       // DJ / MC / club share of our fee
 const NOTES = [200, 500, 1000];   // note sizes a guest can throw
 const MIN_STACK = 1000, MAX_STACK = 5_000_000;
 
-/* ---------- helpers ---------- */
-const now = () => new Date().toISOString();
-const ALPH = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const code = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => ALPH[b % ALPH.length]).join("");
-const secret = () => [...crypto.getRandomValues(new Uint8Array(24))].map((b) => b.toString(16).padStart(2, "0")).join("");
-const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, "0")).join("");
-const clean = (s, n = 40) => String(s ?? "").replace(/[\u0000-\u001f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, n);
-class HttpError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
-const fail = (s, m) => { throw new HttpError(s, m); };
-const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
-const db = (env) => ({
-  first: (sql, ...a) => env.DB.prepare(sql).bind(...a).first(),
-  all: async (sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results,
-  run: (sql, ...a) => env.DB.prepare(sql).bind(...a).run(),
-  p: (sql, ...a) => env.DB.prepare(sql).bind(...a),
-});
 const feeFor = (amount) => Math.ceil(amount * FEE_RATE);
 
-async function eventByCode(env, c) {
-  const e = await db(env).first("SELECT * FROM events WHERE code=?", String(c || "").toUpperCase());
-  if (!e) fail(404, "We couldn't find that party. Check the code and try again.");
-  return e;
-}
-async function hostOnly(env, req, e) {
-  const k = req.headers.get("X-Host-Key") || "";
-  if (!k || (await sha(k)) !== e.host_hash) fail(403, "Only the host can do that.");
-}
 const publicEvent = (e) => ({ code: e.code, name: e.name, kind: e.kind, status: e.status, partner: e.partner || null });
 
 /** Sends any unrevealed money from every stack out as one finale rain. */
@@ -83,6 +61,7 @@ async function api(req, env, path) {
   const D = db(env), m = req.method;
   const body = m === "GET" ? {} : await req.json().catch(() => ({}));
   const seg = path.split("/").filter(Boolean); // ["events","CODE",...]
+  const ev = await eventsApi(req, env, path, body); if (ev) return ev;   // tickets, orders, check-in, listing
 
   if (path === "/config" && m === "GET") return json(200, { fee: FEE_RATE, notes: NOTES, min: MIN_STACK, max: MAX_STACK, stacks: [10000, 20000, 50000, 100000], mode: env.PAYMENTS_MODE || "demo" });
 
@@ -110,12 +89,15 @@ async function api(req, env, path) {
     const name = clean(body.name, 60); if (!name) fail(400, "Give the party a name, e.g. \"Tunde & Bisi's Wedding\".");
     const kind = ["wedding", "birthday", "club", "other"].includes(body.kind) ? body.kind : "other";
     const recs = (Array.isArray(body.recipients) ? body.recipients : []).map((r) => ({ name: clean(r.name, 30), role: clean(r.role, 20) })).filter((r) => r.name).slice(0, 20);
-    if (!recs.length) fail(400, "Add at least one person guests can spray (the celebrant, the DJ…).");
+    const sellsTickets = ["free", "single", "types"].includes(body.ticketing);
+    if (!recs.length && !sellsTickets) fail(400, "Add at least one person guests can spray (the celebrant, the DJ…).");
     const k = secret(); let c;
     for (let i = 0; i < 5; i++) { c = code(5); if (!(await D.first("SELECT id FROM events WHERE code=?", c))) break; }
     const r = await D.run("INSERT INTO events (code, host_hash, name, kind, partner, created) VALUES (?,?,?,?,?,?)", c, await sha(k), name, kind, clean(body.partner, 40) || null, now());
     const id = r.meta.last_row_id;
-    await env.DB.batch(recs.map((x) => D.p("INSERT INTO recipients (event_id, name, role, created) VALUES (?,?,?,?)", id, x.name, x.role || null, now())));
+    if (recs.length) await env.DB.batch(recs.map((x) => D.p("INSERT INTO recipients (event_id, name, role, created) VALUES (?,?,?,?)", id, x.name, x.role || null, now())));
+    try { await createEventDetails(env, id, body); }
+    catch (x) { await env.DB.batch([D.p("DELETE FROM recipients WHERE event_id=?", id), D.p("DELETE FROM events WHERE id=?", id)]); throw x; }
     return json(201, { code: c, hostKey: k });
   }
 
@@ -200,7 +182,8 @@ async function api(req, env, path) {
       `SELECT r.name, r.role, COALESCE(SUM(s.amount),0) AS total, COUNT(s.id) AS stacks FROM recipients r
        LEFT JOIN stacks s ON s.recipient_id=r.id AND s.status='paid' WHERE r.event_id=? GROUP BY r.id ORDER BY total DESC`, e.id);
     const total = ledger.reduce((a, x) => a + x.amount, 0), fees = ledger.reduce((a, x) => a + x.fee, 0);
-    return json(200, { event: publicEvent(e), total, fees, partnerEarnings: e.partner ? Math.floor(fees * PARTNER_SHARE) : 0, byRecipient, ledger });
+    const tickets = await ticketStats(env, e);
+    return json(200, { event: { ...publicEvent(e), listed: Boolean(e.listed), ticketing: e.ticketing || "none" }, tickets, total, fees, partnerEarnings: e.partner ? Math.floor(fees * PARTNER_SHARE) : 0, byRecipient, ledger });
   }
   fail(404, "Not found.");
 }
@@ -209,12 +192,18 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     // Short links: /e/CODE (guests), /s/CODE (big screen), /d/CODE (host dashboard), /p/CODE (personal spray code)
-    const short = /^\/(e|s|d|p)\/[A-Za-z0-9]+\/?$/.exec(url.pathname);
+    const short = /^\/(e|s|d|p|ev|t|door)\/[A-Za-z0-9]+\/?$/.exec(url.pathname);   // ev = event page, t = ticket, door = check-in
     if (short) return env.ASSETS.fetch(new Request(new URL("/" + short[1], url), req));   // served as e.html, s.html…
+    const img = /^\/img\/([A-Z0-9]{16})$/.exec(url.pathname);
+    if (img && env.DB) return serveImage(env, img[1]);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     if (!env.DB) return json(503, { error: "The database isn't connected yet." });
     try {
-      if (!ready) { await env.DB.batch(SCHEMA.map((s) => env.DB.prepare(s))); ready = true; }
+      if (!ready) {
+        await env.DB.batch([...SCHEMA, ...EVENT_SCHEMA].map((s) => env.DB.prepare(s)));
+        for (const m of EVENT_MIGRATIONS) { try { await env.DB.prepare(m).run(); } catch (x) { if (!/duplicate column/i.test(String(x.message))) throw x; } }
+        ready = true;
+      }
       if (req.method !== "GET") { const o = req.headers.get("Origin"); if (o && o !== url.origin) return json(403, { error: "Blocked." }); }
       return await api(req, env, url.pathname.slice(4));
     } catch (err) {
