@@ -36,9 +36,9 @@
     <h2>Who are you spraying?</h2>
     <div class="picks" id="picks"></div>
     <div class="card" style="margin-top:14px">
-      <h3>Someone else in the room?</h3>
-      <p class="muted small" style="margin-bottom:10px">Ask them to show their spray code.</p>
-      <form class="row" id="codeForm"><input id="pcode" maxlength="6" placeholder="Spray code" aria-label="Their spray code" style="text-transform:uppercase;letter-spacing:.12em;font-weight:700"><button class="btn" style="flex:0 0 auto;width:auto">Next</button></form>
+      <h3>Someone not on this list?</h3>
+      <p class="muted small" style="margin-bottom:10px">A dancer or friend can show you their personal spray code (6 characters). Not the party code.</p>
+      <form class="row" id="codeForm"><input id="pcode" maxlength="6" placeholder="Their 6-character code" aria-label="Their personal spray code" style="text-transform:uppercase;letter-spacing:.12em;font-weight:700"><button class="btn" style="flex:0 0 auto;width:auto">Next</button></form>
       <div class="err" id="codeErr" role="alert"></div>
     </div>
     <button class="btn ghost" id="resume" hidden>Back to my stack</button>
@@ -105,6 +105,7 @@ async function boot() {
 $("#codeForm").addEventListener("submit", async (e) => {
   e.preventDefault(); $("#codeErr").textContent = "";
   const c = $("#pcode").value.trim().toUpperCase(); if (!c) return;
+  if (c === CODE) { $("#codeErr").textContent = "That's this party's code, and you're already in! Tap someone above to spray them."; return; }
   try { const p = await api("/people/" + c); choose({ personCode: p.code, name: p.name }); }
   catch (x) { $("#codeErr").textContent = x.message; }
 });
