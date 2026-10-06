@@ -8,10 +8,11 @@
 <style>.status{font-weight:800;text-transform:capitalize}.status.open{color:var(--green)}.status.closing{color:var(--gold)}.status.ended{color:var(--mute)}.qr{width:150px}.scroll{overflow-x:auto}</style>
 </head><body>
 <div class="wrap wide">
-  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span class="badge" id="code"></span></header>
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span class="right"><a class="navlink" href="/me.html">My events</a><span class="badge" id="code"></span></span></header>
   <p class="muted" id="msg">Loading…</p>
   <div id="dash" hidden>
     <h2 id="name"></h2>
+    <div class="row" style="margin:6px 0 12px"><a class="btn" id="editLink">Edit event</a><a class="btn ghost" id="pageLink" target="_blank" rel="noopener">Event page</a></div>
     <p style="margin-bottom:16px">Status: <span class="status" id="status"></span></p>
     <section id="tix" hidden>
       <div class="grid2">
@@ -75,14 +76,14 @@ async function load() {
     $("#status").textContent = d.event.status === "closing" ? "winding down" : d.event.status; $("#status").className = "status " + d.event.status;
     $("#total").textContent = naira(d.total); $("#stacks").textContent = `${d.ledger.length} stack${d.ledger.length === 1 ? "" : "s"} bought`;
     $("#partnerCard").hidden = !d.event.partner; $("#partner").textContent = d.event.partner || ""; $("#pEarn").textContent = naira(d.partnerEarnings);
-    renderTix(d);
+    renderTix(d); $("#pageLink").href = (d.event.ticketing === "none" ? "/e/" : "/ev/") + CODE;
     $("#wind").disabled = d.event.status !== "open"; $("#end").disabled = d.event.status === "ended";
     $("#byRec").replaceChildren(...d.byRecipient.map((r) => el("tr", {}, el("td", {}, r.name), el("td", { class: "muted" }, r.role || ""), el("td", { class: "num" }, r.stacks), el("td", { class: "num" }, naira(r.total)))));
     $("#ledger").replaceChildren(...(d.ledger.length ? d.ledger.map((x) => el("tr", {},
       el("td", { class: "muted" }, new Date(x.created).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
       el("td", {}, x.anonymous ? `${x.guest} (anonymous on screen)` : x.guest), el("td", {}, x.recipient), el("td", { class: "num" }, naira(x.amount))))
       : [el("tr", {}, el("td", { colspan: 4, class: "muted" }, "No sprays yet."))]));
-  } catch (x) { $("#msg").hidden = false; $("#msg").textContent = /host/.test(x.message) ? "This dashboard only opens on the phone that created the party." : x.message; }
+  } catch (x) { $("#msg").hidden = false; signInMsg(/organiser|host/i.test(x.message) ? "This dashboard is for the organiser. Sign in with the account that created this event." : x.message); }
 }
 
 let people = [];
@@ -136,6 +137,8 @@ $("#csv").onclick = () => {
   const a = el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: `${CODE}-who-sprayed.csv` }); a.click();
 };
 qr($("#qr"), location.origin + "/e/" + CODE); $("#gcode").textContent = CODE; $("#screen").href = "/s/" + CODE;
-if (!KEY) { $("#msg").textContent = "This dashboard only opens on the phone that created the party."; } else { load(); loadPeople(); setInterval(load, 5000); setInterval(loadPeople, 20000); }
+function signInMsg(t) { $("#msg").replaceChildren(t, el("br"), el("a", { class: "btn gold", style: "margin-top:12px", href: "/login.html?next=" + encodeURIComponent(location.pathname) }, "Organiser sign in")); }
+$("#editLink").href = "/edit/" + CODE;
+if (!KEY && !session()) { signInMsg("This dashboard is for the organiser. Sign in to open it."); } else { load(); loadPeople(); setInterval(load, 5000); setInterval(loadPeople, 20000); }
 </script>
 </body></html>

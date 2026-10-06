@@ -55,3 +55,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.navlink{font-weight:700;font-size:.9rem;color:var(--gold);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:.4rem .85rem;background:var(--night-2)}
+.top .right{display:flex;gap:8px;align-items:center}
+.tabs{display:flex;gap:6px;background:var(--night-2);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:14px}
+.tabs button{flex:1;min-height:42px;border:0;border-radius:10px;background:none;color:var(--mute);font:700 .95rem var(--body);cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--night-3);color:var(--text)}

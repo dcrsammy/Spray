@@ -7,7 +7,7 @@ const naira = (n) => "₦" + Math.round(Number(n) || 0).toLocaleString("en-NG");
 
 async function api(path, { method = "GET", body, headers = {} } = {}) {
   const res = await fetch("/api" + path, {
-    method, headers: { "Content-Type": "application/json", ...headers },
+    method, headers: { "Content-Type": "application/json", ...(session() ? { "X-Session": session() } : {}), ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -41,6 +41,18 @@ const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
+
+/* Organiser sign-in: the session token lives on this phone. */
+function session() { try { return localStorage.getItem("session") || ""; } catch { return ""; } }
+function setSession(token, organiser) { try { localStorage.setItem("session", token); } catch {} store.set("organiser", organiser); }
+function clearSession() { try { localStorage.removeItem("session"); } catch {} store.set("organiser", null); }
+/** Fills any [data-account] spot in the header with "Sign in" or "My events". */
+function accountLink() {
+  $$("[data-account]").forEach((n) => n.replaceChildren(session()
+    ? el("a", { class: "navlink", href: "/me.html" }, "My events")
+    : el("a", { class: "navlink", href: "/login.html?next=" + encodeURIComponent(location.pathname) }, "Organiser sign in")));
+}
+document.addEventListener("DOMContentLoaded", accountLink);
 
 const codeFromPath = () => (location.pathname.split("/")[2] || "").toUpperCase();
 document.addEventListener("DOMContentLoaded", () => $$("[data-brand]").forEach((n) => (n.textContent = BRAND.name)));

@@ -78,6 +78,21 @@ export async function serveImage(env, id) {
   return new Response(new Uint8Array(r.data), { headers: { "Content-Type": r.mime, "Cache-Control": "public, max-age=604800, immutable" } });
 }
 
+/** Checks one ticket type from the organiser's form. */
+function typeFields(t, ticketing) {
+  const name = clean(t.name, 30); if (!name) fail(400, "Every ticket type needs a name.");
+  const price = Math.round(Number(t.price) || 0); if (price < 0 || price > 10_000_000) fail(400, `Check the price of "${name}".`);
+  if (ticketing !== "free" && price < 100) fail(400, `"${name}" needs a price of at least ₦100 (or choose Free RSVP).`);
+  const qty = t.quantity === "" || t.quantity == null ? null : Math.round(Number(t.quantity));
+  if (qty != null && !(qty >= 1 && qty <= 100000)) fail(400, `Check how many "${name}" tickets are available.`);
+  const admits = Math.max(1, Math.min(50, Math.round(Number(t.admits) || 1)));
+  const early = t.earlyPrice === "" || t.earlyPrice == null ? null : Math.round(Number(t.earlyPrice));
+  const earlyUntil = early != null ? toTime(t.earlyUntil) : null;
+  if (early != null && (!(early >= 100 && early < price) || !earlyUntil)) fail(400, `For "${name}", the early-bird price must be lower than the normal price and have an end date.`);
+  return { name, price, qty, admits, early, earlyUntil };
+}
+const localTime = (iso) => (iso ? String(iso).slice(0, 16) : "");   // stored in Nigerian time, so the first 16 characters are the local date and time
+
 /** Called when an event is created: details and ticket types. */
 export async function createEventDetails(env, eventId, body) {
   const D = db(env);
@@ -96,16 +111,8 @@ export async function createEventDetails(env, eventId, body) {
   else if (ticketing === "types") types = (Array.isArray(body.tickets) ? body.tickets : []).slice(0, 8);
   if (ticketing !== "none" && !types.length) fail(400, "Add at least one ticket type.");
   const stmts = types.map((t, i) => {
-    const name = clean(t.name, 30); if (!name) fail(400, "Every ticket type needs a name.");
-    const price = Math.round(Number(t.price) || 0); if (price < 0 || price > 10_000_000) fail(400, `Check the price of "${name}".`);
-    if (ticketing !== "free" && price < 100) fail(400, `"${name}" needs a price of at least ₦100 (or choose Free RSVP).`);
-    const qty = t.quantity === "" || t.quantity == null ? null : Math.round(Number(t.quantity));
-    if (qty != null && !(qty >= 1 && qty <= 100000)) fail(400, `Check how many "${name}" tickets are available.`);
-    const admits = Math.max(1, Math.min(50, Math.round(Number(t.admits) || 1)));
-    const early = t.earlyPrice === "" || t.earlyPrice == null ? null : Math.round(Number(t.earlyPrice));
-    const earlyUntil = early != null ? toTime(t.earlyUntil) : null;
-    if (early != null && (!(early >= 100 && early < price) || !earlyUntil)) fail(400, `For "${name}", the early-bird price must be lower than the normal price and have an end date.`);
-    return D.p("INSERT INTO ticket_types (event_id, name, price, early_price, early_until, quantity, admits, sort) VALUES (?,?,?,?,?,?,?,?)", eventId, name, price, early, earlyUntil, qty, admits, i);
+    const f = typeFields(t, ticketing);
+    return D.p("INSERT INTO ticket_types (event_id, name, price, early_price, early_until, quantity, admits, sort) VALUES (?,?,?,?,?,?,?,?)", eventId, f.name, f.price, f.early, f.earlyUntil, f.qty, f.admits, i);
   });
   if (stmts.length) await env.DB.batch(stmts);
 }
@@ -222,6 +229,61 @@ export async function eventsApi(req, env, path, body) {
     return json(200, { event: eventDetails(e, { reveal: true }), ...s });
   }
 
+
+  // Organiser: everything needed to fill the edit form
+  if (sub === "edit" && m === "GET") {
+    await hostOnly(env, req, e);
+    const types = await D.all("SELECT * FROM ticket_types WHERE event_id=? ORDER BY sort, id", e.id);
+    const recs = await D.all("SELECT r.id, r.name, r.role, (SELECT COUNT(*) FROM stacks s WHERE s.recipient_id=r.id) AS stacks FROM recipients r WHERE r.event_id=? AND r.person_code IS NULL ORDER BY r.id", e.id);
+    return json(200, { event: { ...eventDetails(e, { reveal: true }), startsLocal: localTime(e.starts_at), flyerId: e.flyer || null },
+      tickets: types.map((t) => ({ id: t.id, name: t.name, price: t.price, earlyPrice: t.early_price, earlyUntil: localTime(t.early_until), quantity: t.quantity, sold: t.sold, admits: t.admits })),
+      recipients: recs });
+  }
+  // Organiser: save changes. Ticket types that have sales can't be removed or have their "admits" changed,
+  // and their quantity can't go below what's sold. New prices apply to new buyers only.
+  if (sub === "edit" && m === "POST") {
+    await hostOnly(env, req, e);
+    const name = clean(body.name, 60); if (!name) fail(400, "The event needs a name.");
+    const ticketing = e.ticketing || "none";
+    if (ticketing !== "none" && !body.startsAt) fail(400, "Add the date and time of the event.");
+    const includes = (Array.isArray(body.includes) ? body.includes : []).map((x) => clean(x, 40)).filter(Boolean).slice(0, 10);
+    const kind = ["wedding", "birthday", "club", "other"].includes(body.kind) ? body.kind : e.kind;
+    let flyer = e.flyer;
+    if (body.removeFlyer) flyer = null;
+    if (body.flyer) flyer = await saveImage(env, body.flyer);
+    const stmts = [D.p(`UPDATE events SET name=?, kind=?, starts_at=?, venue=?, address=?, city=?, venue_hidden=?, age_min=?, about=?, includes=?, price_label=?, contact=?, flyer=?, listed=?, partner=? WHERE id=?`,
+      name, kind, toTime(body.startsAt), clean(body.venue, 80) || null, clean(body.address, 160) || null, clean(body.city, 40) || null, body.venueHidden ? 1 : 0, Number(body.ageMin) === 18 ? 18 : 0,
+      clean(body.about, 1000) || null, JSON.stringify(includes), clean(body.priceLabel, 20) || e.price_label || "Ticket", clean(body.contact, 40) || null, flyer, body.listed ? 1 : 0, clean(body.partner, 40) || null, e.id)];
+
+    if (ticketing !== "none") {
+      const old = new Map((await D.all("SELECT * FROM ticket_types WHERE event_id=?", e.id)).map((t) => [t.id, t]));
+      const incoming = (Array.isArray(body.tickets) ? body.tickets : []).slice(0, 8);
+      const keep = incoming.filter((t) => !t.remove);
+      if (!keep.length) fail(400, "Keep at least one ticket type.");
+      if (ticketing !== "types" && keep.length > 1) fail(400, "This event has a single price. Switch to ticket types by creating a new event.");
+      incoming.forEach((t, i) => {
+        const was = t.id ? old.get(Number(t.id)) : null;
+        if (t.id && !was) fail(400, "One of those ticket types no longer exists. Reload the page.");
+        if (t.remove) { if (!was) return; if (was.sold) fail(409, `"${was.name}" has sales, so it can't be removed. Set its quantity to what's sold to stop selling it.`); stmts.push(D.p("DELETE FROM ticket_types WHERE id=?", was.id)); return; }
+        const f = typeFields(t, ticketing);
+        if (was) {
+          if (f.qty != null && f.qty < was.sold) fail(400, `${was.sold} "${was.name}" tickets are already sold, so the quantity can't be lower than that.`);
+          if (was.sold && f.admits !== was.admits) fail(400, `"${was.name}" has sales, so the number of people it admits can't change.`);
+          stmts.push(D.p("UPDATE ticket_types SET name=?, price=?, early_price=?, early_until=?, quantity=?, admits=?, sort=? WHERE id=?", f.name, f.price, f.early, f.earlyUntil, f.qty, f.admits, i, was.id));
+        } else stmts.push(D.p("INSERT INTO ticket_types (event_id, name, price, early_price, early_until, quantity, admits, sort) VALUES (?,?,?,?,?,?,?,?)", e.id, f.name, f.price, f.early, f.earlyUntil, f.qty, f.admits, i));
+      });
+    }
+    // Lineup: rename, add, or remove people nobody has sprayed yet
+    const oldRecs = new Map((await D.all("SELECT r.id, (SELECT COUNT(*) FROM stacks s WHERE s.recipient_id=r.id) AS stacks FROM recipients r WHERE r.event_id=? AND r.person_code IS NULL", e.id)).map((r) => [r.id, r]));
+    for (const r of (Array.isArray(body.recipients) ? body.recipients : []).slice(0, 20)) {
+      const was = r.id ? oldRecs.get(Number(r.id)) : null, rn = clean(r.name, 30), role = clean(r.role, 20) || null;
+      if (r.id && !was) continue;
+      if (r.remove || !rn) { if (was) { if (was.stacks) fail(409, "Someone has already been sprayed, so they can't be removed from the lineup."); stmts.push(D.p("DELETE FROM recipients WHERE id=?", was.id)); } continue; }
+      stmts.push(was ? D.p("UPDATE recipients SET name=?, role=? WHERE id=?", rn, role, was.id) : D.p("INSERT INTO recipients (event_id, name, role, created) VALUES (?,?,?,?)", e.id, rn, role, now()));
+    }
+    await env.DB.batch(stmts);
+    return json(200, { ok: true });
+  }
   // Host only
   if (sub === "door-link" && m === "POST") {   // new door key; the old link stops working
     await hostOnly(env, req, e);

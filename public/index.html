@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Spray: make it rain without cash</title>
-<meta name="description" content="Spray the celebrants, the DJ or the artist from your phone. Notes rain on the big screen with your name. No cash, no download.">
+<title>Spray: tickets and spraying</title>
+<meta name="description" content="Tickets for parties, raves and owambes, QR check-in at the door, and digital money spraying on the night. No cash.">
 <meta name="theme-color" content="#0b0a12">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -10,6 +10,7 @@
 <style>
   .hero{padding:28px 0 8px}
   .hero h1 span{color:var(--gold)}
+  .organise .how{margin:10px 0 14px}
   .how{counter-reset:s;display:grid;gap:10px;margin:18px 0 22px;padding:0;list-style:none}
   .how li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;color:var(--mute)}
   .how li::before{content:counter(s);flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--night-3);border:1px solid var(--line);color:var(--gold);font-weight:800}
@@ -22,27 +23,34 @@
 </style>
 </head><body>
 <div class="wrap">
-  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span class="badge demo">Preview: no real money</span></header>
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span data-account></span></header>
   <section class="hero">
-    <h1>Make it rain.<br><span>No cash.</span></h1>
-    <p class="lede">Spray the celebrants, the DJ or the artist from your phone. Notes rain on the big screen with your name on them, and the money goes straight to them.</p>
+    <h1>Find the party.<br><span>Spray the vibe.</span></h1>
+    <p class="lede">Get tickets to parties, raves and owambes, walk in with a QR code, and spray the DJ, the hype man or the celebrants from your phone. No cash.</p>
   </section>
-  <ol class="how">
-    <li><span><b>Scan the code</b> on the screen or your table. Nothing to download.</span></li>
-    <li><span><b>Pick who you're spraying</b> and buy a stack, by transfer or card.</span></li>
-    <li><span><b>Flick your phone.</b> Every note lands on the big screen, live.</span></li>
-  </ol>
+
+  <section id="mineWrap" hidden><h2>Your tickets</h2><div class="evs" id="mine"></div></section>
+
+  <section><h2 id="upTitle">What's on</h2><div class="evs" id="up"><p class="muted" id="upMsg">Loading events…</p></div></section>
+
   <div class="card">
     <h3>At a party already?</h3>
+    <p class="muted small" style="margin-bottom:10px">Type the code on the screen or your table to start spraying.</p>
     <form class="join" id="join"><input id="code" maxlength="6" placeholder="Party code" aria-label="Party code" autocomplete="off"><button class="btn gold">Spray</button></form>
   </div>
-  <section id="mineWrap" hidden><h2 style="margin-top:6px">Your tickets</h2><div class="evs" id="mine"></div></section>
-  <section id="upWrap" hidden><h2 style="margin-top:6px">Coming up</h2><div class="evs" id="up"></div></section>
-  <div class="stack">
-    <a class="btn gold" href="/host.html">Set up an event: tickets and spraying</a>
-    <a class="btn" href="/p">Get your own spray code</a>
+
+  <div class="card organise">
+    <h3>Organising something?</h3>
+    <ol class="how">
+      <li><span><b>Sell tickets</b>: types, tables, early bird, contributions or free RSVPs.</span></li>
+      <li><span><b>Scan people in</b> at the door with any phone.</span></li>
+      <li><span><b>Let guests spray</b> the lineup on the big screen, live.</span></li>
+    </ol>
+    <a class="btn gold" href="/host.html">Set up an event</a>
+    <a class="btn ghost" id="orgLink" href="/login.html" style="margin-top:8px">Organiser sign in</a>
   </div>
-  <p class="muted small" style="margin-top:22px">Spraying naira notes is against the law in Nigeria. This keeps the tradition alive, legally, and gives celebrants a record of everyone who showed love.</p>
+  <a class="btn ghost" href="/p">Get your own spray code (dancers, hype men, celebrants)</a>
+  <p class="muted small" style="margin-top:22px">Spraying naira notes is against the law in Nigeria. This keeps the tradition alive, legally, and gives celebrants a record of everyone who showed love. <span class="badge demo">Preview: no real money</span></p>
 </div>
 <script src="/common.js"></script>
 <script>
@@ -52,13 +60,14 @@ if (mine.length) {
   $("#mine").append(...mine.slice(0, 5).map((t) => el("a", { class: "ev", href: "/t/" + t.order }, el("span", { class: "ph" }, "🎟️"), el("div", {}, el("b", {}, t.event), el("span", { class: "muted small" }, when(t.at))))));
   $("#mineWrap").hidden = false;
 }
+if (session()) { $("#orgLink").href = "/me.html"; $("#orgLink").textContent = "My events"; }
 api("/listing").then(({ events }) => {
-  if (!events.length) return;
+  $("#upMsg").remove();
+  if (!events.length) { $("#up").append(el("p", { class: "muted" }, "No public events right now. Check back soon, or set up yours below.")); return; }
   $("#up").append(...events.map((e) => el("a", { class: "ev", href: "/ev/" + e.code },
     e.flyer ? el("img", { src: e.flyer, alt: "", loading: "lazy" }) : el("span", { class: "ph" }, "🎉"),
     el("div", {}, el("b", {}, e.name), el("span", { class: "muted small" }, [when(e.startsAt), e.city].filter(Boolean).join(" · ")), el("br"),
       el("span", { class: "p" }, e.ticketing === "free" ? "Free RSVP" : e.ticketing === "none" ? "Free entry" : e.from != null ? "From " + naira(e.from) : "")))));
-  $("#upWrap").hidden = false;
-}).catch(() => {});
+}).catch(() => { $("#upMsg").textContent = "Couldn't load events. Check your connection."; });
 </script>
 </body></html>

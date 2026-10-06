@@ -20,7 +20,15 @@ export async function eventByCode(env, c) {
   if (!e) fail(404, "We couldn't find that party. Check the code and try again.");
   return e;
 }
+/** The signed-in organiser (from the X-Session header), or null. */
+export async function sessionOrganiser(env, req) {
+  const t = req.headers.get("X-Session") || "";
+  if (!t || t.length > 100) return null;
+  return await db(env).first("SELECT o.id, o.name, o.login FROM sessions s JOIN organisers o ON o.id=s.organiser_id WHERE s.token_hash=?", await sha(t));
+}
+/** Organiser-only actions: the signed-in organiser who owns the event, or the host key saved on the phone that created it. */
 export async function hostOnly(env, req, e) {
+  if (e.organiser_id) { const o = await sessionOrganiser(env, req); if (o && o.id === e.organiser_id) return; }
   const k = req.headers.get("X-Host-Key") || "";
-  if (!k || (await sha(k)) !== e.host_hash) fail(403, "Only the host can do that.");
+  if (!k || (await sha(k)) !== e.host_hash) fail(403, "Only the organiser can do that. Sign in with the account that created this event.");
 }

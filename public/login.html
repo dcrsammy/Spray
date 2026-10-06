@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Organiser sign in · Spray</title><meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+</head><body>
+<div class="wrap">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a></header>
+  <h1 style="font-size:clamp(1.8rem,7vw,2.4rem)">For organisers</h1>
+  <p class="muted" style="margin-bottom:18px" id="why">Sell tickets, scan people in at the door and let guests spray, all from your phone. Sign in to see and manage your events from any device.</p>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabIn" aria-selected="true">Sign in</button>
+    <button type="button" role="tab" id="tabUp" aria-selected="false">Create account</button>
+  </div>
+  <form class="card" id="form">
+    <div class="field" id="nameRow" hidden><label for="oname">Your name or brand</label><input id="oname" maxlength="50" autocomplete="organization" placeholder="e.g. Club Waves"></div>
+    <div class="field"><label for="login">Phone number or email</label><input id="login" maxlength="80" autocomplete="username" inputmode="email" placeholder="0803 123 4567"></div>
+    <div class="field"><label for="pw">Password</label><input id="pw" type="password" maxlength="100" autocomplete="current-password"><p class="muted small" id="pwHint" hidden>At least 8 characters.</p></div>
+    <label class="check"><input type="checkbox" id="show"> Show password</label>
+    <div class="err" id="err" role="alert"></div>
+    <button class="btn gold" id="go" style="margin-top:12px">Sign in</button>
+  </form>
+  <p class="muted small">Forgot your password? Message us on WhatsApp and we'll reset it.</p>
+</div>
+<script src="/common.js"></script>
+<script>
+const next = new URLSearchParams(location.search).get("next") || "/me.html";
+const safeNext = /^\/[A-Za-z0-9/._-]*$/.test(next) && !next.startsWith("//") ? next : "/me.html";
+if (safeNext.startsWith("/host")) $("#why").textContent = "Create a free organiser account first. It takes 20 seconds, and you'll be able to manage your event from any phone.";
+let mode = new URLSearchParams(location.search).get("new") ? "up" : "in";
+function setMode(m) {
+  mode = m; $("#tabIn").setAttribute("aria-selected", m === "in"); $("#tabUp").setAttribute("aria-selected", m === "up");
+  $("#nameRow").hidden = m === "in"; $("#pwHint").hidden = m === "in"; $("#pw").autocomplete = m === "in" ? "current-password" : "new-password";
+  $("#go").textContent = m === "in" ? "Sign in" : "Create account"; $("#err").textContent = "";
+}
+$("#tabIn").onclick = () => setMode("in"); $("#tabUp").onclick = () => setMode("up"); setMode(mode);
+$("#show").onchange = (e) => ($("#pw").type = e.target.checked ? "text" : "password");
+$("#form").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("#err").textContent = ""; const btn = $("#go"); btn.disabled = true;
+  try {
+    const body = { login: $("#login").value, password: $("#pw").value, name: $("#oname").value };
+    const r = await api(mode === "in" ? "/auth/login" : "/auth/signup", { method: "POST", body });
+    setSession(r.token, r.organiser);
+    // events created on this phone before signing in move into the account
+    const keys = store.get("hostKeys") || {};
+    const events = Object.entries(keys).map(([code, hostKey]) => ({ code, hostKey }));
+    if (events.length) await api("/me/claim", { method: "POST", body: { events } }).catch(() => {});
+    location.href = safeNext;
+  } catch (x) { $("#err").textContent = x.message; btn.disabled = false; }
+});
+</script>
+</body></html>

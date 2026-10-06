@@ -1,4 +1,5 @@
-import { now, code, secret, sha, clean, HttpError, fail, json, db, eventByCode, hostOnly } from "./lib.js";
+import { now, code, secret, sha, clean, HttpError, fail, json, db, eventByCode, hostOnly, sessionOrganiser } from "./lib.js";
+import { accountsApi, ACCOUNT_SCHEMA, ACCOUNT_MIGRATIONS } from "./accounts.js";
 import { eventsApi, EVENT_SCHEMA, EVENT_MIGRATIONS, createEventDetails, ticketStats, serveImage } from "./events.js";
 
 /**
@@ -61,6 +62,7 @@ async function api(req, env, path) {
   const D = db(env), m = req.method;
   const body = m === "GET" ? {} : await req.json().catch(() => ({}));
   const seg = path.split("/").filter(Boolean); // ["events","CODE",...]
+  const acc = await accountsApi(req, env, path, body); if (acc) return acc;   // organiser sign up / sign in / my events
   const ev = await eventsApi(req, env, path, body); if (ev) return ev;   // tickets, orders, check-in, listing
 
   if (path === "/config" && m === "GET") return json(200, { fee: FEE_RATE, notes: NOTES, min: MIN_STACK, max: MAX_STACK, stacks: [10000, 20000, 50000, 100000], mode: env.PAYMENTS_MODE || "demo" });
@@ -86,6 +88,8 @@ async function api(req, env, path) {
 
   // Create an event (party or club night)
   if (path === "/events" && m === "POST") {
+    const owner = await sessionOrganiser(env, req);
+    if (!owner) fail(401, "Sign in or create an organiser account first, so you can manage this event from any phone.");
     const name = clean(body.name, 60); if (!name) fail(400, "Give the party a name, e.g. \"Tunde & Bisi's Wedding\".");
     const kind = ["wedding", "birthday", "club", "other"].includes(body.kind) ? body.kind : "other";
     const recs = (Array.isArray(body.recipients) ? body.recipients : []).map((r) => ({ name: clean(r.name, 30), role: clean(r.role, 20) })).filter((r) => r.name).slice(0, 20);
@@ -93,7 +97,7 @@ async function api(req, env, path) {
     if (!recs.length && !sellsTickets) fail(400, "Add at least one person guests can spray (the celebrant, the DJ…).");
     const k = secret(); let c;
     for (let i = 0; i < 5; i++) { c = code(5); if (!(await D.first("SELECT id FROM events WHERE code=?", c))) break; }
-    const r = await D.run("INSERT INTO events (code, host_hash, name, kind, partner, created) VALUES (?,?,?,?,?,?)", c, await sha(k), name, kind, clean(body.partner, 40) || null, now());
+    const r = await D.run("INSERT INTO events (code, host_hash, name, kind, partner, created, organiser_id) VALUES (?,?,?,?,?,?,?)", c, await sha(k), name, kind, clean(body.partner, 40) || null, now(), owner.id);
     const id = r.meta.last_row_id;
     if (recs.length) await env.DB.batch(recs.map((x) => D.p("INSERT INTO recipients (event_id, name, role, created) VALUES (?,?,?,?)", id, x.name, x.role || null, now())));
     try { await createEventDetails(env, id, body); }
@@ -192,16 +196,16 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     // Short links: /e/CODE (guests), /s/CODE (big screen), /d/CODE (host dashboard), /p/CODE (personal spray code)
-    const short = /^\/(e|s|d|p|ev|t|door)\/[A-Za-z0-9]+\/?$/.exec(url.pathname);   // ev = event page, t = ticket, door = check-in
-    if (short) return env.ASSETS.fetch(new Request(new URL("/" + short[1], url), req));   // served as e.html, s.html…
+    const short = /^\/(e|s|d|p|ev|t|door|edit)\/[A-Za-z0-9]+\/?$/.exec(url.pathname);   // ev = event page, t = ticket, door = check-in
+    if (short) return env.ASSETS.fetch(new Request(new URL("/" + (short[1] === "edit" ? "host" : short[1]), url), req));   // served as e.html, s.html…
     const img = /^\/img\/([A-Z0-9]{16})$/.exec(url.pathname);
     if (img && env.DB) return serveImage(env, img[1]);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     if (!env.DB) return json(503, { error: "The database isn't connected yet." });
     try {
       if (!ready) {
-        await env.DB.batch([...SCHEMA, ...EVENT_SCHEMA].map((s) => env.DB.prepare(s)));
-        for (const m of EVENT_MIGRATIONS) { try { await env.DB.prepare(m).run(); } catch (x) { if (!/duplicate column/i.test(String(x.message))) throw x; } }
+        await env.DB.batch([...SCHEMA, ...EVENT_SCHEMA, ...ACCOUNT_SCHEMA].map((s) => env.DB.prepare(s)));
+        for (const m of [...EVENT_MIGRATIONS, ...ACCOUNT_MIGRATIONS]) { try { await env.DB.prepare(m).run(); } catch (x) { if (!/duplicate column/i.test(String(x.message))) throw x; } }
         ready = true;
       }
       if (req.method !== "GET") { const o = req.headers.get("Origin"); if (o && o !== url.origin) return json(403, { error: "Blocked." }); }

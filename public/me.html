@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>My events · Spray</title><meta name="theme-color" content="#0b0a12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .evrow{display:flex;gap:12px;align-items:flex-start}
+  .evrow img,.evrow .ph{flex:none;width:76px;height:76px;border-radius:12px;object-fit:cover;background:var(--night-3);display:grid;place-items:center;font-size:1.6rem}
+  .evrow h3{margin:0 0 2px;font-size:1.1rem}
+  .nums{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 10px;font-size:.9rem}.nums b{color:var(--text)}
+  .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.acts .btn{min-height:42px;font-size:.92rem}
+  .pill{font-size:.75rem;font-weight:700;border-radius:999px;padding:.15rem .55rem;border:1px solid var(--line);color:var(--mute)}
+  .pill.on{color:var(--green);border-color:var(--green)}
+</style>
+</head><body>
+<div class="wrap">
+  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><button class="navlink" id="out" style="cursor:pointer">Sign out</button></header>
+  <p class="muted small" id="who"></p>
+  <h1 style="font-size:clamp(1.8rem,7vw,2.4rem)">My events</h1>
+  <a class="btn gold" href="/host.html" style="margin:8px 0 18px">+ New event</a>
+  <p class="muted" id="msg">Loading…</p>
+  <div id="list"></div>
+</div>
+<script src="/common.js"></script>
+<script>
+if (!session()) location.replace("/login.html?next=/me.html");
+$("#out").onclick = async () => { await api("/auth/logout", { method: "POST" }).catch(() => {}); clearSession(); location.href = "/"; };
+(async () => {
+  const keys = Object.entries(store.get("hostKeys") || {}).map(([code, hostKey]) => ({ code, hostKey }));
+  if (keys.length) await api("/me/claim", { method: "POST", body: { events: keys } }).catch(() => {});
+  let d;
+  try { d = await api("/me"); }
+  catch (x) { if (/sign in/i.test(x.message)) { clearSession(); location.replace("/login.html?next=/me.html"); } else $("#msg").textContent = x.message; return; }
+  $("#who").textContent = `Signed in as ${d.organiser.name} (${d.organiser.login})`;
+  if (!d.events.length) { $("#msg").textContent = "No events yet. Tap “New event” to set up your first one."; return; }
+  $("#msg").hidden = true;
+  const soon = (e) => e.startsAt && Date.parse(e.startsAt) > Date.now() - 12 * 3600e3 && e.status !== "ended";
+  $("#list").append(...d.events.map((e) => el("div", { class: "card" },
+    el("div", { class: "evrow" },
+      e.flyer ? el("img", { src: e.flyer, alt: "" }) : el("span", { class: "ph" }, "🎉"),
+      el("div", { style: "flex:1;min-width:0" },
+        el("h3", {}, e.name),
+        el("p", { class: "muted small" }, [e.startsAt ? when(e.startsAt) : "No date", e.city].filter(Boolean).join(" · ")),
+        el("div", { style: "display:flex;gap:6px;margin-top:6px;flex-wrap:wrap" },
+          el("span", { class: "pill" + (soon(e) ? " on" : "") }, e.status === "ended" ? "Ended" : soon(e) ? "Upcoming" : e.startsAt ? "Past" : "Spray only"),
+          e.ticketing !== "none" ? el("span", { class: "pill" + (e.listed ? " on" : "") }, e.listed ? "On homepage" : "Link only") : ""))),
+    el("div", { class: "nums muted" },
+      e.ticketing !== "none" ? el("span", {}, el("b", {}, e.sold), " tickets") : "",
+      e.revenue ? el("span", {}, el("b", {}, naira(e.revenue)), " sales") : "",
+      el("span", {}, el("b", {}, naira(e.sprayed)), " sprayed")),
+    el("div", { class: "acts" },
+      el("a", { class: "btn gold", href: "/d/" + e.code }, "Dashboard"),
+      el("a", { class: "btn", href: "/edit/" + e.code }, "Edit"),
+      el("a", { class: "btn", href: (e.ticketing === "none" ? "/e/" : "/ev/") + e.code }, "Event page"),
+      e.ticketing !== "none" ? el("a", { class: "btn", href: "/door/" + e.code }, "Door scanner") : el("a", { class: "btn", href: "/s/" + e.code }, "Big screen")))));
+})();
+</script>
+</body></html>

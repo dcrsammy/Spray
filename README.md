@@ -5,7 +5,10 @@ Event tickets plus digital money spraying, for parties and club nights. Organise
 ## Pages
 | Link | Who it's for |
 |---|---|
-| `/` | Home: join a party by code, set one up, or get a spray code |
+| `/` | Home: **What's on** (events organisers chose to list), your tickets, join a party by code, organiser sign-up |
+| `/login.html` | Organiser sign in / create account (phone number or email + password) |
+| `/me.html` | **My events**: every event the organiser created, with dashboard, edit, event page and door scanner |
+| `/edit/CODE` | Edit an event: details, flyer, venue, time, ticket prices and quantities, add or remove ticket types, lineup |
 | `/host.html` | **Organiser setup**: date, flyer, venue (can be hidden until the ticket is bought), tickets, "what's included", 18+, lineup to spray, DJ/MC partner |
 | `/ev/CODE` | **Event page**: flyer, details, buy tickets or RSVP |
 | `/t/ORDER` | **Ticket page** after payment: one QR per ticket, venue revealed. Also listed under "Your tickets" on the home page of that phone |
@@ -20,6 +23,12 @@ Event tickets plus digital money spraying, for parties and club nights. Organise
 - Flicks only reveal on screen money that's already theirs.
 - **Wind down** reminds guests with money left to throw it. **End & finale** rains whatever is left on the people it was meant for.
 - Fee 3% on top, paid by the guest; DJ/MC/planner partner gets 25% of the fee. Change in `worker/index.js` (top of file).
+
+## Organiser accounts
+- Creating an event needs an organiser account, so organisers can manage it from any phone.
+- Passwords are hashed (PBKDF2); 8 wrong tries locks that login for 15 minutes. Password reset is manual for now (no email/SMS service yet).
+- Events made on a phone before signing in move into the account when the organiser signs in there.
+- Editing rules: a ticket type with sales can't be removed or change how many people it admits, and its quantity can't go below what's sold.
 
 ## Tickets
 - Modes: **ticket types** (Regular, VIP, Table for 6 with "admits 6", up to 8 types, limited quantities, early-bird price that switches automatically), **single price** called Ticket / Contribution / Entry / Gate fee, **free RSVP**, or **no tickets** (spraying only).
