@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Big screen · Spray</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 <style>
   html,body{height:100%;overflow:hidden;background:radial-gradient(90% 70% at 50% 110%,#16301f 0%,#0b0a12 55%)}
@@ -11,15 +11,15 @@
   .hud{position:fixed;inset:0;z-index:3;display:grid;grid-template-columns:1fr minmax(240px,24vw);grid-template-rows:auto 1fr auto;gap:2vh 2vw;padding:3vh 3vw;pointer-events:none}
   .title{grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-start}
   .title h1{font-size:clamp(1.6rem,3.6vw,3.4rem);max-width:60vw}
-  .total{text-align:right;background:rgba(21,19,31,.8);border:1px solid var(--line);border-radius:18px;padding:12px 20px;backdrop-filter:blur(6px)}.total b{display:block;font:800 clamp(2.4rem,6vw,6rem)/1 var(--display);color:var(--gold);font-variant-numeric:tabular-nums;text-shadow:0 0 40px rgba(245,197,66,.35)}
+  .total{text-align:right;background:rgba(18,26,49,.8);border:1px solid var(--line);border-radius:18px;padding:12px 20px;backdrop-filter:blur(6px)}.total b{display:block;font:800 clamp(2.4rem,6vw,6rem)/1 var(--display);color:var(--gold);font-variant-numeric:tabular-nums;text-shadow:0 0 40px rgba(242,182,50,.35)}
   .total span{color:var(--mute);font-weight:600;font-size:clamp(.9rem,1.2vw,1.2rem)}
-  .board{grid-column:2;grid-row:2;align-self:start;background:rgba(21,19,31,.75);border:1px solid var(--line);border-radius:18px;padding:16px 18px;backdrop-filter:blur(6px)}
+  .board{grid-column:2;grid-row:2;align-self:start;background:rgba(18,26,49,.75);border:1px solid var(--line);border-radius:18px;padding:16px 18px;backdrop-filter:blur(6px)}
   .board h3{color:var(--gold);font-size:clamp(.9rem,1.2vw,1.2rem);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
   .board ol{list-style:none;padding:0;display:grid;gap:6px}
   .board li{display:flex;justify-content:space-between;gap:10px;font-weight:700;font-size:clamp(.95rem,1.3vw,1.35rem)}
   .board li span:last-child{color:var(--gold);font-variant-numeric:tabular-nums}
   .ticker{grid-column:2;grid-row:3;align-self:end;display:grid;gap:8px}
-  .tick{background:rgba(21,19,31,.85);border:1px solid var(--line);border-radius:14px;padding:10px 14px;font-weight:600;font-size:clamp(.9rem,1.2vw,1.2rem);animation:in .35s ease-out}
+  .tick{background:rgba(18,26,49,.85);border:1px solid var(--line);border-radius:14px;padding:10px 14px;font-weight:600;font-size:clamp(.9rem,1.2vw,1.2rem);animation:in .35s ease-out}
   .tick b{color:var(--gold)}
   @keyframes in{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
   .scan{grid-column:1;grid-row:3;align-self:end;display:flex;gap:18px;align-items:center}
@@ -71,7 +71,7 @@ function drawNote(n) {
   ctx.fillStyle = COLORS[n.v] || "#245c3a";
   ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 8); ctx.fill();
   ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2; ctx.stroke();
-  ctx.fillStyle = "#fff"; ctx.font = `800 ${h * .42}px "Bricolage Grotesque",sans-serif`; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fff"; ctx.font = `600 ${h * .4}px "JetBrains Mono",monospace`; ctx.textBaseline = "middle";
   ctx.fillText("₦" + n.v, -w / 2 + w * .08, 0);
   ctx.beginPath(); ctx.arc(w / 2 - h * .45, 0, h * .28, 0, 6.29); ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.stroke();
   ctx.restore();

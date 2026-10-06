@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>My events · Spray</title><meta name="theme-color" content="#0b0a12">
+<title>My events · Spray</title><meta name="theme-color" content="#121a31">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 <style>
   .evrow{display:flex;gap:12px;align-items:flex-start}
@@ -23,7 +23,7 @@
   <p class="muted" id="msg">Loading…</p>
   <div id="list"></div>
 </div>
-<script src="/common.js"></script>
+<script src="/common.js"></script><script src="/alive.js"></script>
 <script>
 if (!session()) location.replace("/login.html?next=/me.html");
 $("#out").onclick = async () => { await api("/auth/logout", { method: "POST" }).catch(() => {}); clearSession(); location.href = "/"; };
@@ -37,7 +37,7 @@ $("#out").onclick = async () => { await api("/auth/logout", { method: "POST" }).
   if (!d.events.length) { $("#msg").textContent = "No events yet. Tap “New event” to set up your first one."; return; }
   $("#msg").hidden = true;
   const soon = (e) => e.startsAt && Date.parse(e.startsAt) > Date.now() - 12 * 3600e3 && e.status !== "ended";
-  $("#list").append(...d.events.map((e) => el("div", { class: "card" },
+  $("#list").append(...d.events.map((e) => el("div", { class: "card tilt", "data-tilt": "3" },
     el("div", { class: "evrow" },
       e.flyer ? el("img", { src: e.flyer, alt: "" }) : el("span", { class: "ph" }, "🎉"),
       el("div", { style: "flex:1;min-width:0" },

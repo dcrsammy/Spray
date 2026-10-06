@@ -3,45 +3,90 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spray: tickets and spraying</title>
 <meta name="description" content="Tickets for parties, raves and owambes, QR check-in at the door, and digital money spraying on the night. No cash.">
-<meta name="theme-color" content="#0b0a12">
+<meta name="theme-color" content="#121a31">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 <style>
-  .hero{padding:28px 0 8px}
-  .hero h1 span{color:var(--gold)}
-  .organise .how{margin:10px 0 14px}
-  .how{counter-reset:s;display:grid;gap:10px;margin:18px 0 22px;padding:0;list-style:none}
-  .how li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;color:var(--mute)}
-  .how li::before{content:counter(s);flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--night-3);border:1px solid var(--line);color:var(--gold);font-weight:800}
-  .how b{color:var(--text)}
-  .evs{display:grid;gap:12px;margin:10px 0 22px}
-  .ev{display:flex;gap:12px;align-items:center;background:var(--night-2);border:1px solid var(--line);border-radius:16px;padding:10px;color:inherit;text-decoration:none}
-  .ev img,.ev .ph{flex:none;width:72px;height:72px;border-radius:12px;object-fit:cover;background:var(--night-3);display:grid;place-items:center;font-size:1.6rem}
-  .ev b{display:block;line-height:1.25}.ev .p{color:var(--gold);font-weight:700;font-size:.9rem}
-  .join{display:flex;gap:8px}.join input{text-transform:uppercase;letter-spacing:.15em;font-weight:700}.join .btn{width:auto}
+  .hero{position:relative;margin:-22px -16px 8px;padding:34px 16px 30px;min-height:min(92vh,760px);display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;touch-action:pan-y}
+  #field{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .hero > *:not(canvas){position:relative}
+  .kicker{font:500 .72rem var(--mono);letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:14px}
+  .hero h1{font-size:clamp(2.7rem,12.5vw,4.6rem);line-height:.98;text-shadow:0 2px 30px rgba(18,26,49,.9)}
+  .hero .lede{max-width:30rem;text-shadow:0 1px 14px rgba(18,26,49,.95)}
+  .hint{font:500 .72rem var(--mono);color:var(--mute);margin-top:14px;display:flex;align-items:center;gap:.5rem}
+  .hint i{flex:none;margin-right:10px;display:inline-block;width:18px;height:18px;border:1.5px solid var(--mute);border-radius:50%;position:relative;font-style:normal;animation:nudge 2.4s var(--ease) infinite}
+  @keyframes nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(7px)}}
+  .ctas{display:flex;gap:10px;margin-top:6px}.ctas .btn{width:auto;flex:1}
+
+  .head{display:flex;justify-content:space-between;align-items:baseline;margin:26px 0 12px}
+  .head h2{margin:0}.head span{font:500 .72rem var(--mono);color:var(--mute)}
+  /* swipeable deck */
+  .deck{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:6px 16px 22px;scrollbar-width:none;-webkit-overflow-scrolling:touch;perspective:1000px}
+  .deck::-webkit-scrollbar{display:none}
+  .deck-item{flex:0 0 78%;max-width:340px;scroll-snap-align:center;position:relative;border-radius:22px;overflow:hidden;text-decoration:none;color:var(--text);background:var(--night-2);border:1px solid var(--line);box-shadow:0 26px 50px -24px rgba(0,0,0,.8);aspect-ratio:4/5.3;display:block;transform-origin:center 80%}
+  .deck-item img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scale(1.08) translate(calc(var(--px)*-6px),calc(var(--py)*-6px));transition:transform .6s var(--ease)}
+  .deck-item .ph{position:absolute;inset:0;display:grid;place-items:center;font-size:4rem;background:radial-gradient(circle at 30% 20%,#2f3b66,#121a31)}
+  .deck-item .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(18,26,49,0) 40%,rgba(12,17,33,.94) 88%)}
+  .deck-item .info{position:absolute;left:0;right:0;bottom:0;padding:16px}
+  .deck-item h3{font-size:1.45rem;line-height:1.1;margin:6px 0 4px}
+  .date{display:inline-flex;gap:.4rem;font:600 .7rem var(--mono);letter-spacing:.06em;text-transform:uppercase;background:var(--gold);color:var(--gold-ink);border-radius:999px;padding:.25rem .6rem}
+  .price{position:absolute;top:12px;right:12px;font:600 .75rem var(--mono);background:rgba(18,26,49,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(238,240,246,.18);border-radius:999px;padding:.3rem .65rem}
+  .age{position:absolute;top:12px;left:12px;font:600 .7rem var(--mono);background:var(--red);color:#fff;border-radius:999px;padding:.25rem .5rem}
+  .dots{display:flex;justify-content:center;gap:6px;margin-top:-8px}
+  .dots b{width:6px;height:6px;border-radius:999px;background:var(--line);transition:width .35s var(--spring),background .3s}
+  .dots b.on{width:20px;background:var(--gold)}
+  .empty{border:1px dashed var(--line);border-radius:22px;padding:28px 18px;text-align:center;color:var(--mute)}
+  /* ticket stubs */
+  .stubs{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:4px 16px 10px;scrollbar-width:none}.stubs::-webkit-scrollbar{display:none}
+  .stub{flex:0 0 auto;min-width:230px;scroll-snap-align:start;display:flex;text-decoration:none;color:var(--ink);background:var(--paper);border-radius:14px;position:relative;box-shadow:0 14px 30px -16px rgba(0,0,0,.7)}
+  .stub .l{padding:12px 14px;flex:1}.stub .l b{font:400 1.05rem var(--display);display:block}.stub .l span{font:500 .72rem var(--mono);color:#5b6480}
+  .stub .r{display:grid;place-items:center;padding:0 14px;border-left:2px dashed #c9cfdf;font:600 .7rem var(--mono);color:#a37612;writing-mode:vertical-rl;letter-spacing:.1em}
+  .stub::before,.stub::after{content:"";position:absolute;right:52px;width:14px;height:14px;border-radius:50%;background:var(--night)}
+  .stub::before{top:-7px}.stub::after{bottom:-7px}
+  .join{display:flex;gap:8px}.join input{text-transform:uppercase;letter-spacing:.3em;font:600 1.15rem var(--mono);text-align:center}.join .btn{width:auto}
+  .organise{background:linear-gradient(160deg,#243058,#1a2442 60%);position:relative;overflow:hidden}
+  .organise::after{content:"₦";position:absolute;right:-10px;top:-40px;font:400 11rem/1 var(--display);color:rgba(242,182,50,.07);pointer-events:none}
+  .steps{list-style:none;padding:0;display:grid;gap:10px;margin:12px 0 16px;counter-reset:s}
+  .steps li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;color:var(--mute)}
+  .steps li::before{content:counter(s,decimal-leading-zero);flex:none;font:600 .75rem var(--mono);color:var(--gold);padding-top:.2rem}
+  .steps b{color:var(--text)}
+  .foot{font-size:.82rem;color:var(--mute);margin-top:24px}
 </style>
 </head><body>
 <div class="wrap">
-  <header class="top"><a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a><span data-account></span></header>
-  <section class="hero">
-    <h1>Find the party.<br><span>Spray the vibe.</span></h1>
-    <p class="lede">Get tickets to parties, raves and owambes, walk in with a QR code, and spray the DJ, the hype man or the celebrants from your phone. No cash.</p>
+  <header class="top">
+    <a class="brand" href="/"><i>₦</i><span data-brand>Spray</span></a>
+    <span class="status"><span class="dot"></span>LAGOS <b data-clock>--:--</b></span>
+    <span data-account></span>
+  </header>
+
+  <section class="hero" data-norv>
+    <canvas id="field" data-place="top" aria-hidden="true"></canvas>
+    <p class="kicker">Tickets · Door · Spray</p>
+    <h1>Find the<br><span class="rot" data-rotate="owambe.|rave.|wedding.|club night.|birthday.|vibe.">owambe.</span><br>Spray the night.</h1>
+    <p class="lede">Get your ticket, walk in with a QR code, then spray the DJ, the hype man or the celebrants from your phone. No cash, nothing to download.</p>
+    <div class="ctas"><a class="btn gold" href="#whatson">See what's on</a><a class="btn ghost" href="#party">I'm at a party</a></div>
+    <p class="hint"><i></i>Drag your finger across the ₦</p>
   </section>
 
-  <section id="mineWrap" hidden><h2>Your tickets</h2><div class="evs" id="mine"></div></section>
+  <section id="mineWrap" hidden><div class="head"><h2>Your tickets</h2><span>tap to show at the door</span></div><div class="stubs" id="mine"></div></section>
 
-  <section><h2 id="upTitle">What's on</h2><div class="evs" id="up"><p class="muted" id="upMsg">Loading events…</p></div></section>
+  <section id="whatson">
+    <div class="head"><h2>What's on</h2><span id="count"></span></div>
+    <div class="deck" id="up" data-norv><div class="deck-item" style="display:grid;place-items:center"><span class="muted">Loading…</span></div></div>
+    <div class="dots" id="dots"></div>
+  </section>
 
-  <div class="card">
+  <div class="card" id="party" style="margin-top:22px">
     <h3>At a party already?</h3>
-    <p class="muted small" style="margin-bottom:10px">Type the code on the screen or your table to start spraying.</p>
-    <form class="join" id="join"><input id="code" maxlength="6" placeholder="Party code" aria-label="Party code" autocomplete="off"><button class="btn gold">Spray</button></form>
+    <p class="muted small" style="margin-bottom:12px">Type the code on the big screen or your table.</p>
+    <form class="join" id="join"><input id="code" maxlength="6" placeholder="CODE" aria-label="Party code" autocomplete="off"><button class="btn gold">Spray</button></form>
   </div>
 
   <div class="card organise">
-    <h3>Organising something?</h3>
-    <ol class="how">
+    <h3 style="font-size:1.35rem">Throwing something?</h3>
+    <ol class="steps">
       <li><span><b>Sell tickets</b>: types, tables, early bird, contributions or free RSVPs.</span></li>
       <li><span><b>Scan people in</b> at the door with any phone.</span></li>
       <li><span><b>Let guests spray</b> the lineup on the big screen, live.</span></li>
@@ -49,25 +94,49 @@
     <a class="btn gold" href="/host.html">Set up an event</a>
     <a class="btn ghost" id="orgLink" href="/login.html" style="margin-top:8px">Organiser sign in</a>
   </div>
-  <a class="btn ghost" href="/p">Get your own spray code (dancers, hype men, celebrants)</a>
-  <p class="muted small" style="margin-top:22px">Spraying naira notes is against the law in Nigeria. This keeps the tradition alive, legally, and gives celebrants a record of everyone who showed love. <span class="badge demo">Preview: no real money</span></p>
+  <a class="btn ghost" href="/p">Get your own spray code</a>
+  <p class="foot">Spraying naira notes is against the law in Nigeria. This keeps the tradition alive, legally, and gives celebrants a record of everyone who showed love. <span class="badge demo">Preview: no real money</span></p>
 </div>
-<script src="/common.js"></script>
+<script src="/common.js"></script><script src="/alive.js"></script>
 <script>
 $("#join").addEventListener("submit", (e) => { e.preventDefault(); const c = $("#code").value.trim().toUpperCase(); if (c) location.href = "/e/" + c; });
+if (session()) { $("#orgLink").href = "/me.html"; $("#orgLink").textContent = "My events"; }
+const day = (iso) => new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", day: "numeric", month: "short" });
+
 const mine = (store.get("myTickets") || []).filter((t) => !t.at || Date.parse(t.at) > Date.now() - 864e5);
 if (mine.length) {
-  $("#mine").append(...mine.slice(0, 5).map((t) => el("a", { class: "ev", href: "/t/" + t.order }, el("span", { class: "ph" }, "🎟️"), el("div", {}, el("b", {}, t.event), el("span", { class: "muted small" }, when(t.at))))));
+  $("#mine").append(...mine.slice(0, 6).map((t) => el("a", { class: "stub", href: "/t/" + t.order },
+    el("div", { class: "l" }, el("b", {}, t.event), el("span", {}, t.at ? when(t.at) : "")), el("div", { class: "r" }, "TICKET"))));
   $("#mineWrap").hidden = false;
 }
-if (session()) { $("#orgLink").href = "/me.html"; $("#orgLink").textContent = "My events"; }
+
+const deck = $("#up");
 api("/listing").then(({ events }) => {
-  $("#upMsg").remove();
-  if (!events.length) { $("#up").append(el("p", { class: "muted" }, "No public events right now. Check back soon, or set up yours below.")); return; }
-  $("#up").append(...events.map((e) => el("a", { class: "ev", href: "/ev/" + e.code },
+  $("#count").textContent = events.length ? `${events.length} upcoming` : "";
+  if (!events.length) { deck.replaceChildren(el("div", { class: "empty", style: "flex:1" }, "No public events right now. Throwing one? Set it up below.")); return; }
+  deck.replaceChildren(...events.map((e) => el("a", { class: "deck-item tilt", "data-tilt": "5", href: "/ev/" + e.code },
     e.flyer ? el("img", { src: e.flyer, alt: "", loading: "lazy" }) : el("span", { class: "ph" }, "🎉"),
-    el("div", {}, el("b", {}, e.name), el("span", { class: "muted small" }, [when(e.startsAt), e.city].filter(Boolean).join(" · ")), el("br"),
-      el("span", { class: "p" }, e.ticketing === "free" ? "Free RSVP" : e.ticketing === "none" ? "Free entry" : e.from != null ? "From " + naira(e.from) : "")))));
-}).catch(() => { $("#upMsg").textContent = "Couldn't load events. Check your connection."; });
+    el("span", { class: "shade" }),
+    e.ageMin ? el("span", { class: "age" }, e.ageMin + "+") : "",
+    el("span", { class: "price" }, e.ticketing === "free" ? "Free RSVP" : e.ticketing === "none" ? "Free entry" : e.from != null ? "from " + naira(e.from) : ""),
+    el("div", { class: "info" }, el("span", { class: "date" }, day(e.startsAt)), el("h3", {}, e.name), el("span", { class: "muted small" }, [new Date(e.startsAt).toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour: "numeric", minute: "2-digit", hour12: true }), e.city].filter(Boolean).join(" · "))))));
+  $("#dots").replaceChildren(...events.map(() => el("b")));
+  shape();
+}).catch(() => deck.replaceChildren(el("div", { class: "empty", style: "flex:1" }, "Couldn't load events. Check your connection.")));
+
+// cards lean back and shrink as they slide away from the centre
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function shape() {
+  const items = $$(".deck-item", deck); if (!items.length) return;
+  const mid = deck.getBoundingClientRect().left + deck.clientWidth / 2; let best = 0, bestD = 1e9;
+  items.forEach((it, i) => {
+    const r = it.getBoundingClientRect(), d = (r.left + r.width / 2 - mid) / r.width;
+    if (Math.abs(d) < bestD) { bestD = Math.abs(d); best = i; }
+    if (!reduce && !it.classList.contains("live")) it.style.translate = "0 " + Math.min(18, Math.abs(d) * 18).toFixed(1) + "px", it.style.scale = (1 - Math.min(.08, Math.abs(d) * .08)).toFixed(3), it.style.rotate = (d * 2.5).toFixed(2) + "deg";
+  });
+  $$("#dots b").forEach((b, i) => b.classList.toggle("on", i === best));
+}
+deck.addEventListener("scroll", () => requestAnimationFrame(shape), { passive: true });
+addEventListener("resize", shape);
 </script>
 </body></html>

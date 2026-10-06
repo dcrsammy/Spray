@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Host dashboard · Spray</title><meta name="theme-color" content="#0b0a12">
+<title>Host dashboard · Spray</title><meta name="theme-color" content="#121a31">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 <style>.status{font-weight:800;text-transform:capitalize}.status.open{color:var(--green)}.status.closing{color:var(--gold)}.status.ended{color:var(--mute)}.qr{width:150px}.scroll{overflow-x:auto}</style>
 </head><body>
@@ -57,7 +57,7 @@
     </div>
   </div>
 </div>
-<script src="/common.js"></script><script src="/qrcode.js"></script>
+<script src="/common.js"></script><script src="/alive.js"></script><script src="/qrcode.js"></script>
 <script>
 const CODE = codeFromPath();
 // Host key: saved on this phone when the party was created, or passed once as #k=… to open it on another device
@@ -74,8 +74,8 @@ async function load() {
     $("#msg").hidden = true; $("#dash").hidden = false;
     $("#name").textContent = d.event.name;
     $("#status").textContent = d.event.status === "closing" ? "winding down" : d.event.status; $("#status").className = "status " + d.event.status;
-    $("#total").textContent = naira(d.total); $("#stacks").textContent = `${d.ledger.length} stack${d.ledger.length === 1 ? "" : "s"} bought`;
-    $("#partnerCard").hidden = !d.event.partner; $("#partner").textContent = d.event.partner || ""; $("#pEarn").textContent = naira(d.partnerEarnings);
+    countTo($("#total"), d.total, naira); $("#stacks").textContent = `${d.ledger.length} stack${d.ledger.length === 1 ? "" : "s"} bought`;
+    $("#partnerCard").hidden = !d.event.partner; $("#partner").textContent = d.event.partner || ""; countTo($("#pEarn"), d.partnerEarnings, naira);
     renderTix(d); $("#pageLink").href = (d.event.ticketing === "none" ? "/e/" : "/ev/") + CODE;
     $("#wind").disabled = d.event.status !== "open"; $("#end").disabled = d.event.status === "ended";
     $("#byRec").replaceChildren(...d.byRecipient.map((r) => el("tr", {}, el("td", {}, r.name), el("td", { class: "muted" }, r.role || ""), el("td", { class: "num" }, r.stacks), el("td", { class: "num" }, naira(r.total)))));
@@ -90,8 +90,8 @@ let people = [];
 function renderTix(d) {
   const t = d.tickets; if (!t || t.ticketing === "none") return;
   $("#tix").hidden = false;
-  $("#tSold").textContent = t.tickets; $("#tRev").textContent = t.revenue ? `${naira(t.revenue)} from ${t.orders} order${t.orders === 1 ? "" : "s"}` : `${t.orders} RSVP${t.orders === 1 ? "" : "s"}`;
-  $("#tIn").textContent = t.inside; $("#tExp").textContent = `of ${t.people} expected`;
+  countTo($("#tSold"), t.tickets); $("#tRev").textContent = t.revenue ? `${naira(t.revenue)} from ${t.orders} order${t.orders === 1 ? "" : "s"}` : `${t.orders} RSVP${t.orders === 1 ? "" : "s"}`;
+  countTo($("#tIn"), t.inside); $("#tExp").textContent = `of ${t.people} expected`;
   $("#tTypes").replaceChildren(...t.types.map((x) => el("tr", {}, el("td", {}, x.name + (x.admits > 1 ? ` (admits ${x.admits})` : "")), el("td", { class: "num" }, x.price ? naira(x.price) : "Free"), el("td", { class: "num" }, x.sold), el("td", { class: "num" }, x.quantity == null ? "∞" : x.quantity - x.sold))));
   if (document.activeElement !== $("#listed")) $("#listed").checked = d.event.listed;
 }

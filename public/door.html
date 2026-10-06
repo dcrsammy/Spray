@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>Door check-in · Spray</title><meta name="theme-color" content="#0b0a12">
+<title>Door check-in · Spray</title><meta name="theme-color" content="#121a31">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 <style>
   .cam{position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;background:#000;margin:12px 0}
@@ -11,7 +11,19 @@
   .cam .frame{position:absolute;inset:18%;border:3px solid var(--gold);border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
   .result{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:8px}
   .result.ok{background:#0f7a43}.result.bad{background:#a3242a}.result.warn{background:#a86b00}
-  .result b{font:800 clamp(2.2rem,11vw,3.4rem)/1 var(--display)}.result p{font-size:1.25rem;font-weight:600}
+  .result b{font:400 clamp(2.6rem,13vw,4rem)/1 var(--display);animation:slam .5s var(--spring) both}
+  .result p{animation:fadeup .4s .12s var(--ease) both}
+  .result::before{content:"";position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px;border-radius:50%;border:3px solid rgba(255,255,255,.6);animation:ring .9s var(--ease) both}
+  .result:not([hidden]){animation:flash .25s ease both}
+  .result.bad b{animation:slam .5s var(--spring) both,shake .45s .2s both}
+  @keyframes slam{from{transform:scale(2.2);opacity:0}}@keyframes fadeup{from{opacity:0;transform:translateY(10px)}}
+  @keyframes ring{to{transform:scale(6);opacity:0}}@keyframes flash{from{opacity:.4}}
+  @keyframes shake{20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+  .cam .frame{animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{50%{inset:20%;border-color:#fff}}
+  .cam .laser{position:absolute;left:18%;right:18%;top:18%;height:2px;background:var(--gold);box-shadow:0 0 14px 2px var(--gold);animation:scan 1.8s ease-in-out infinite alternate}
+  @keyframes scan{to{top:82%}}
+  #inside{font-family:var(--mono)}.result p{font-size:1.25rem;font-weight:600}
   .stats{display:flex;justify-content:space-between;font-weight:700}
 </style>
 </head><body>
@@ -21,13 +33,13 @@
   <main id="page" hidden>
     <h2 id="name"></h2>
     <div class="stats"><span>Inside: <span id="inside">0</span></span><span class="muted">Expected: <span id="expected">0</span></span></div>
-    <div class="cam"><video id="video" playsinline muted></video><div class="frame"></div></div>
+    <div class="cam"><video id="video" playsinline muted></video><div class="frame"></div><div class="laser" id="laser" hidden></div></div>
     <button class="btn gold" id="start">Start scanning</button>
     <form class="row" id="manual" style="margin-top:12px"><input id="code" placeholder="Or type the ticket code" autocomplete="off" style="text-transform:uppercase"><button class="btn" style="flex:0 0 auto;width:auto">Check</button></form>
   </main>
 </div>
 <div class="result" id="result" hidden role="alert"><b id="rTitle"></b><p id="rText"></p><p id="rSub" style="font-size:1rem;opacity:.85"></p></div>
-<script src="/common.js"></script><script src="/jsqr.js"></script>
+<script src="/common.js"></script><script src="/alive.js"></script><script src="/jsqr.js"></script>
 <script>
 const CODE = codeFromPath();
 const hash = new URLSearchParams(location.hash.slice(1));
@@ -39,7 +51,7 @@ let busy = false, lastCode = "", lastAt = 0, scanning = false;
   try {
     const d = await api(`/events/${CODE}/door`, { headers: H });
     $("#msg").hidden = true; $("#page").hidden = false; $("#name").textContent = d.event.name;
-    $("#inside").textContent = d.inside; $("#expected").textContent = d.expected;
+    countTo($("#inside"), d.inside); $("#expected").textContent = d.expected;
   } catch (x) { $("#msg").textContent = x.message; }
 })();
 
@@ -47,6 +59,7 @@ function show(kind, title, text, sub = "") {
   $("#rTitle").textContent = title; $("#rText").textContent = text; $("#rSub").textContent = sub;
   const r = $("#result"); r.className = "result " + kind; r.hidden = false;
   navigator.vibrate?.(kind === "ok" ? 80 : [120, 60, 120]);
+  if (kind === "ok") burst(innerWidth / 2, innerHeight / 2, 18);
   setTimeout(() => { r.hidden = true; busy = false; }, kind === "ok" ? 1800 : 2600);
 }
 async function check(raw) {
@@ -55,7 +68,7 @@ async function check(raw) {
   busy = true; lastCode = c; lastAt = Date.now();
   try {
     const r = await api(`/events/${CODE}/checkin`, { method: "POST", headers: H, body: { ticket: c } });
-    $("#inside").textContent = r.inside;
+    countTo($("#inside"), r.inside);
     show("ok", r.admits > 1 ? `Admit ${r.admits}` : "Welcome in", r.name, r.type);
   } catch (x) {
     let info = {}; try { info = JSON.parse(x.raw || "{}"); } catch {}
@@ -70,7 +83,7 @@ $("#start").onclick = async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
     const v = $("#video"); v.srcObject = stream; await v.play();
-    $("#start").hidden = true; scanning = true;
+    $("#start").hidden = true; scanning = true; $("#laser").hidden = false;
     const c = document.createElement("canvas"), ctx = c.getContext("2d", { willReadFrequently: true });
     const loop = () => {
       if (!scanning) return;

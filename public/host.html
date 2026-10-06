@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Create an event · Spray</title><meta name="theme-color" content="#0b0a12">
+<title>Create an event · Spray</title><meta name="theme-color" content="#121a31">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 <style>
   fieldset{border:1px solid var(--line);border-radius:18px;padding:16px;margin:0 0 14px;background:var(--night-2)}
@@ -117,7 +117,7 @@
     </div>
   </section>
 </div>
-<script src="/common.js"></script><script src="/qrcode.js"></script>
+<script src="/common.js"></script><script src="/alive.js"></script><script src="/qrcode.js"></script>
 <script>
 const EDIT = location.pathname.startsWith("/edit/") ? codeFromPath() : null;
 if (!session()) location.replace("/login.html?next=" + encodeURIComponent(location.pathname));
